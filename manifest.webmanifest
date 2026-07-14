@@ -1,0 +1,9 @@
+{
+  "name": "MPLS Quest 38",
+  "short_name": "MPLS Quest",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "description": "Materi interaktif, penilaian 0–100, Top 10, dan laporan MPLS."
+}

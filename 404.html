@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="description" content="Aplikasi interaktif MPLS: Literasi Digital dan Pengenalan Kurikulum.">
+  <title>MPLS Quest 38</title>
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+  <div class="ambient ambient-one"></div><div class="ambient ambient-two"></div>
+  <header class="topbar">
+    <button class="brand" id="homeButton" aria-label="Kembali ke beranda">
+      <span class="brand-mark">38</span>
+      <span><strong id="brandTitle">MPLS Quest 38</strong><small id="brandSchool">SMP Negeri 38</small></span>
+    </button>
+    <nav class="top-actions" aria-label="Aksi aplikasi">
+      <span id="connectionBadge" class="connection demo">Mode Demo</span>
+      <button class="icon-btn" id="fullscreenButton" title="Layar penuh" aria-label="Layar penuh">⛶</button>
+      <button class="icon-btn" id="teacherButton" title="Panel guru" aria-label="Panel guru">👩‍🏫</button>
+    </nav>
+  </header>
+
+  <main id="app" class="app-shell" aria-live="polite"></main>
+
+  <aside id="timerDock" class="timer-dock hidden" aria-label="Timer kegiatan">
+    <div><small>TIMER</small><strong id="timerDisplay">00:00</strong></div>
+    <button id="timerToggle" class="timer-btn">Mulai</button>
+    <button id="timerReset" class="timer-btn ghost">Ulang</button>
+    <button id="timerClose" class="timer-close" aria-label="Tutup timer">×</button>
+  </aside>
+
+  <div id="modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <section class="modal-card">
+      <button class="modal-close" id="modalClose" aria-label="Tutup">×</button>
+      <div id="modalContent"></div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <script src="./js/config.js"></script>
+  <script src="./js/fallback-data.js"></script>
+  <script src="./js/api.js"></script>
+  <script src="./js/app.js"></script>
+</body>
+</html>
