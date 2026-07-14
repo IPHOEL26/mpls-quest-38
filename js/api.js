@@ -69,6 +69,11 @@
     saveGroupSetup: p => post('saveGroupSetup', p),
     rateGroupMember: p => post('rateGroupMember', p),
     rateGroupPoster: p => post('rateGroupPoster', p),
-    deleteRunData: p => post('deleteRunData', p)
+    deleteRunData: p => post('deleteRunData', p),
+    runSync: (runId, studentId) => get('runSync', {runId, studentId}),
+    setRunSync: p => post('setRunSync', p),
+    studentHeartbeat: p => post('studentHeartbeat', p),
+    markStudentProgress: p => post('markStudentProgress', p),
+    classProgress: p => post('classProgress', p)
   };
 })();

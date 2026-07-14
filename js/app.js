@@ -12,7 +12,7 @@
   const state = {
     data:null, currentSession:null, stepIndex:0,
     student:loadJSON('mpls_student'), progress:loadJSON('mpls_progress') || {},
-    quiz:null, timer:{seconds:0, initial:0, running:false, handle:null}, teacherKey:'', presentationMode, presentationGroups:null, teacherContext:null, joinPromptShown:false
+    quiz:null, timer:{seconds:0, initial:0, running:false, handle:null}, teacherKey:'', presentationMode, presentationGroups:null, teacherContext:null, joinPromptShown:false, classSync:null, syncPoll:null, heartbeatTimer:null, lastSyncUpdated:'', lastAutoSyncKey:'', classProgress:null
   };
 
   function esc(value) {
@@ -50,6 +50,74 @@
   function setProgress(sessionId, step) { if (state.presentationMode) return; state.progress[sessionId] = Math.max(Number(state.progress[sessionId] || 0), step); saveJSON('mpls_progress', state.progress); }
 
 
+  function isLiveStudentSync() {
+    return !state.presentationMode && window.MPLS_API.isConfigured() && state.student && state.student.run && state.student.run.runId;
+  }
+  function unlockedIds() { return new Set((state.classSync && state.classSync.unlockedContentIds) || []); }
+  function itemUnlocked(item) { return !isLiveStudentSync() || unlockedIds().has(String(item && item.content_id || '')); }
+  function contentIndexById(contentId) { return sessionContent().findIndex(x => String(x.content_id) === String(contentId || '')); }
+  function stopStudentSync() {
+    if (state.syncPoll) clearInterval(state.syncPoll);
+    if (state.heartbeatTimer) clearInterval(state.heartbeatTimer);
+    state.syncPoll = null; state.heartbeatTimer = null;
+  }
+  async function sendStudentProgress(status, item, detail, progressPercent) {
+    if (!isLiveStudentSync()) return;
+    const current = item || (state.currentSession && sessionContent()[state.stepIndex]) || {};
+    try {
+      await window.MPLS_API.studentHeartbeat({
+        runId:state.student.run.runId, studentId:state.student.studentId,
+        contentId:String(current.content_id || ''), status:status || 'opened',
+        progressPercent:Number(progressPercent || 0), detail:String(detail || current.title || '')
+      });
+    } catch (err) { console.warn('Progress siswa belum terkirim:', err); }
+  }
+  function startStudentSync() {
+    if (!isLiveStudentSync()) return;
+    stopStudentSync();
+    pollStudentSync(true);
+    state.syncPoll = setInterval(() => pollStudentSync(false), 8000);
+    state.heartbeatTimer = setInterval(() => {
+      const item = state.currentSession ? sessionContent()[state.stepIndex] : null;
+      sendStudentProgress(item ? 'opened' : 'waiting', item, item ? item.title : 'Menunggu arahan guru');
+    }, 30000);
+  }
+  async function pollStudentSync(force) {
+    if (!isLiveStudentSync()) return;
+    try {
+      const result = await window.MPLS_API.runSync(state.student.run.runId, state.student.studentId);
+      const incoming = result.syncState || {};
+      const changed = force || String(incoming.updatedAt || '') !== String(state.lastSyncUpdated || '');
+      state.classSync = incoming; state.lastSyncUpdated = String(incoming.updatedAt || '');
+      if (!changed) return;
+      applyStudentSync(incoming);
+    } catch (err) { console.warn('Sinkronisasi kelas tertunda:', err); }
+  }
+  function applyStudentSync(sync) {
+    if (!state.currentSession) {
+      state.currentSession = (state.data.sessions || []).find(s => s.session_id === (state.student.run && state.student.run.sessionId));
+    }
+    if (!sync || !sync.studentOpen || !sync.activeContentId) {
+      renderWaitingForTeacher(sync);
+      return;
+    }
+    const idx = contentIndexById(sync.activeContentId);
+    if (idx >= 0 && (sync.forceFollow || !itemUnlocked(sessionContent()[state.stepIndex]))) {
+      state.stepIndex = idx;
+      renderSession(); scrollPageToTop();
+      toast('Guru membuka: ' + (sync.activeTitle || sessionContent()[idx].title), 'success');
+    } else if (state.currentSession) renderSession();
+  }
+  function renderWaitingForTeacher(sync) {
+    const run = state.student && state.student.run || {};
+    app.innerHTML = `<section class="waiting-class-screen"><div class="waiting-pulse">📡</div><span class="eyebrow">TERHUBUNG KE KELAS</span><h1>Menunggu arahan guru</h1><p>${esc((sync && sync.teacherMessage) || 'Silakan tetap membuka halaman ini. Materi akan muncul otomatis ketika guru membukanya.')}</p><div class="waiting-run"><strong>${esc(run.title || '')}</strong><span>${esc(run.roomName || '')} · Kode ${esc(run.runCode || '')}</span></div><div class="waiting-actions"><button class="secondary-action" id="syncNow">↻ Periksa Sekarang</button><button class="secondary-action" id="changeJoin">Ganti Sesi</button></div><small>Jangan menutup halaman. Sistem memeriksa arahan guru secara otomatis.</small></section>`;
+    $('#syncNow').onclick=()=>pollStudentSync(true);
+    $('#changeJoin').onclick=()=>openRegistration(()=>{ const sid=state.student&&state.student.run&&state.student.run.sessionId; if(sid)beginSession(sid); });
+    sendStudentProgress('waiting', null, 'Menunggu arahan guru');
+  }
+
+
+
 
   function setupPresentationBridge() {
     if (!state.presentationMode) return;
@@ -60,6 +128,7 @@
       state.teacherKey = String(event.data.teacherKey || '');
       sessionStorage.setItem('mpls_presentation_context', JSON.stringify(event.data));
       toast('Mode Presentasi terhubung ke sesi ' + (event.data.runCode || ''), 'success');
+      resumePresentationFromSync();
     });
     if (window.opener) window.opener.postMessage({type:'MPLS_PRESENTATION_READY'}, location.origin);
   }
@@ -193,8 +262,13 @@
         return showModal(`<div class="empty-state"><div class="big-emoji">🔑</div><h2>Kode sesi berbeda</h2><p>Kode <strong>${esc(state.student.run.runCode)}</strong> digunakan untuk <strong>${esc(state.student.run.title)}</strong> di ${esc(state.student.run.roomName)}.</p><button class="primary-action" id="joinOther">Masuk dengan kode lain</button></div>`, root => $('#joinOther',root).onclick = () => openRegistration(go, id));
       }
       state.currentSession = (state.data.sessions || []).find(s => s.session_id === id);
-      state.stepIndex = state.presentationMode ? 0 : Math.min(Number(state.progress[id] || 0), Math.max(0, sessionContent().length-1));
-      renderSession();
+      if (state.presentationMode) {
+        state.stepIndex = 0; renderSession(); startPresentationProgressPolling();
+      } else if (isLiveStudentSync()) {
+        state.stepIndex = 0; renderWaitingForTeacher(state.classSync); startStudentSync();
+      } else {
+        state.stepIndex = Math.min(Number(state.progress[id] || 0), Math.max(0, sessionContent().length-1)); renderSession();
+      }
     };
     if (state.presentationMode) go(); else if (!state.student) openRegistration(go, id); else go();
   }
@@ -226,6 +300,9 @@
     if (item.template === 'three_s_material') {
       return `${bodyHTML(item.body)}<figure class="three-s-poster"><img src="${esc(item.image_url)}" alt="Infografik Screen Time, Screen Zone, dan Screen Break"><figcaption>Klik tombol di bawah untuk memperbesar infografik dan membuka materi referensi.</figcaption></figure>${cue}`;
     }
+    if (item.template === 'student_activity') {
+      return `${bodyHTML(item.body)}<div class="student-activity-feature"><span>📱</span><div><strong>Aktivitas berlangsung di HP siswa</strong><p>Gunakan panel Sinkron Kelas di atas untuk membuka quiz, melihat jumlah peserta aktif, dan memantau penyelesaian.</p></div></div>${cue}`;
+    }
     if (item.template === 'group_builder') {
       return `${bodyHTML(item.body)}<div class="group-flow"><article><span>1</span><strong>Atur kelompok</strong><small>Jumlah, nama, dan warna bola.</small></article><article><span>2</span><strong>Masukkan jumlah murid</strong><small>Aplikasi membagi secara merata.</small></article><article><span>3</span><strong>Ambil bola</strong><small>Tampilkan kelompok murid satu per satu.</small></article></div>`;
     }
@@ -246,15 +323,18 @@
     if (!item) return renderHome();
     setProgress(state.currentSession.session_id, state.stepIndex);
     const pct = Math.round((state.stepIndex+1)/items.length*100);
+    const showSyncDone = !state.presentationMode && isLiveStudentSync() && !String(item.action||'').startsWith('quiz:') && String(item.action||'') !== 'reflection';
     app.innerHTML = `
       <section class="session-header ${accentClass(state.currentSession.accent)}">
         <button class="back-btn" id="backHome">← ${state.presentationMode?'Pilih Materi':'Beranda'}</button>
         <div>${state.presentationMode?'<span class="presentation-tag">📽️ MODE PRESENTASI · GURU TIDAK MASUK DAFTAR PESERTA</span>':''}<span class="eyebrow">${esc(state.currentSession.day_label)} · ${esc(state.currentSession.duration_minutes)} MENIT</span><h1>${esc(state.currentSession.title)}</h1><p>${esc(state.currentSession.subtitle)}</p></div>
         <div class="session-score"><small>PROGRES</small><strong>${pct}%</strong></div>
       </section>
+      ${!state.presentationMode && isLiveStudentSync() ? `<div class="student-sync-banner"><span>📡</span><div><small>ARAHAN GURU</small><strong>${esc((state.classSync&&state.classSync.activeTitle)||item.title)}</strong><p>${esc((state.classSync&&state.classSync.teacherMessage)||'Ikuti tahap yang sedang dibuka.')}</p></div>${showSyncDone?'<button class="sync-done-btn" id="markStageDone">✓ Sudah Mengikuti</button>':''}</div>` : ''}
       <div class="journey-layout ${state.presentationMode?'presentation-wide':''}">
-        ${state.presentationMode?'':`<aside class="step-rail" aria-label="Daftar pos">${items.map((x,i) => `<button class="rail-step ${i===state.stepIndex?'active':''} ${i<state.stepIndex?'done':''}" data-step="${i}"><span>${i<state.stepIndex?'✓':i+1}</span><small>${esc(x.title)}</small></button>`).join('')}</aside>`}
+        ${state.presentationMode?'':`<aside class="step-rail" aria-label="Daftar pos">${items.map((x,i) => { const unlocked=itemUnlocked(x); return `<button class="rail-step ${i===state.stepIndex?'active':''} ${unlocked&&i!==state.stepIndex?'done':''} ${unlocked?'':'locked'}" data-step="${i}" ${unlocked?'':'disabled'}><span>${unlocked?(i===state.stepIndex?i+1:'✓'):'🔒'}</span><small>${esc(x.title)}</small></button>`; }).join('')}</aside>`}
         <section class="content-stage">
+          ${state.presentationMode ? renderSyncControl(item) : ''}
           <article class="content-card ${accentClass(item.accent)}">
             <div class="content-kicker"><span class="content-icon">${esc(item.icon)}</span><span>${esc(item.activity || ('POS '+(state.stepIndex+1)+' DARI '+items.length))}</span>${state.presentationMode?'<button class="outline-btn" id="openOutline">☰ Daftar Materi</button>':''}<button class="duration-btn" id="durationButton">⏱ ${esc(item.duration_minutes)} menit</button></div>
             ${item.activity_title ? `<div class="activity-banner"><strong>${esc(item.activity_title)}</strong><small>Pos ${state.stepIndex+1} dari ${items.length}</small></div>` : ''}
@@ -262,16 +342,91 @@
             <div class="content-body">${renderItemContent(item)}</div>
             ${actionButton(item)}
           </article>
-          <nav class="step-nav"><button id="prevStep" ${state.stepIndex===0?'disabled':''}>← Sebelumnya</button><span>${pct}% selesai</span><button id="nextStep">${state.stepIndex===items.length-1?'Selesaikan':'Berikutnya →'}</button></nav>
+          <nav class="step-nav"><button id="prevStep" ${state.stepIndex===0?'disabled':''}>← Sebelumnya</button><span>${pct}% selesai</span><button id="nextStep" ${(!state.presentationMode&&isLiveStudentSync()&&state.stepIndex<items.length-1&&!itemUnlocked(items[state.stepIndex+1]))?'disabled':''}>${(!state.presentationMode&&isLiveStudentSync()&&state.stepIndex<items.length-1&&!itemUnlocked(items[state.stepIndex+1]))?'Menunggu Guru 🔒':(state.stepIndex===items.length-1?'Selesaikan':'Berikutnya →')}</button></nav>
         </section>
       </div>`;
     $('#backHome').onclick = renderHome;
     $('#prevStep').onclick = prevStep;
     $('#nextStep').onclick = nextStep;
     $('#durationButton').onclick = () => openTimer(Number(item.duration_minutes)*60);
-    $$('.rail-step').forEach(btn => btn.onclick = () => { state.stepIndex = Number(btn.dataset.step); renderSession(); scrollPageToTop(); });
+    $$('.rail-step').forEach(btn => btn.onclick = () => { if(btn.disabled)return toast('Tahap ini belum dibuka guru.','warning'); state.stepIndex = Number(btn.dataset.step); renderSession(); scrollPageToTop(); });
     if ($('#openOutline')) $('#openOutline').onclick = () => openPresentationOutline(items);
+    if (state.presentationMode) { bindSyncControl(item); autoSyncPresentationItem(item); }
+    else if (isLiveStudentSync()) {
+      sendStudentProgress('opened', item, item.title, Math.round((unlockedIds().size/Math.max(1,items.length))*100));
+      if($('#markStageDone'))$('#markStageDone').onclick=async()=>{const btn=$('#markStageDone');btn.disabled=true;btn.textContent='✓ Sudah dicatat';await sendStudentProgress('completed',item,'Sudah mengikuti '+item.title,100);toast('Tahap ditandai selesai.','success');};
+    }
     const action = $('#contentAction'); if (action) action.onclick = () => runAction(item);
+  }
+
+
+  function renderSyncControl(item) {
+    const ctx=state.teacherContext||{};
+    const tasks=Array.isArray(item.student_tasks)?item.student_tasks:[];
+    if(!ctx.runId)return `<aside class="sync-control disconnected"><div><small>📡 SINKRON KELAS</small><strong>Belum terhubung ke sesi</strong><p>Buka Mode Presentasi dari Panel Guru setelah memilih sesi agar HP siswa dapat dikendalikan.</p></div></aside>`;
+    const cp=state.classProgress||{};
+    return `<aside class="sync-control"><div class="sync-control-head"><div><small>📡 SINKRON KELAS · ${esc(ctx.runCode||'')}</small><strong>${tasks.length?'Aktivitas HP terkait tahap ini':'Tahap presentasi guru'}</strong><p>${esc(item.teacher_message||'Ikuti arahan guru.')}</p></div><span class="sync-live ${state.classSync&&state.classSync.studentOpen?'open':'locked'}">${state.classSync&&state.classSync.studentOpen?'HP DIBUKA':'HP DIKUNCI'}</span></div><div class="sync-task-buttons">${tasks.length?tasks.map((task,i)=>`<button class="sync-task-btn ${state.classSync&&state.classSync.activeContentId===task.content_id?'active':''}" data-sync-task="${i}"><span>${task.type==='quiz'?'🎮':task.type==='video'?'🎬':task.type==='reflection'?'✍️':'📱'}</span><div><small>${task.type==='quiz'?'AKTIVITAS DINILAI':'TAHAP SISWA'}</small><strong>Buka ${esc(task.title)}</strong></div></button>`).join(''):'<div class="sync-no-task">Tidak ada tugas HP khusus pada tahap ini. Siswa tetap menunggu arahan.</div>'}</div><div class="sync-metrics"><article><small>Terdaftar</small><strong id="syncJoined">${Number(cp.joined||0)}</strong></article><article><small>Aktif</small><strong id="syncOnline">${Number(cp.online||0)}</strong></article><article><small>Membuka</small><strong id="syncOpened">${Number(cp.openedActive||0)}</strong></article><article><small>Selesai</small><strong id="syncCompleted">${Number(cp.completedActive||0)}</strong></article></div><div class="sync-actions"><button class="outline-btn" id="syncRefresh">↻ Segarkan</button><button class="outline-btn" id="syncDetails">👥 Lihat Progres</button><button class="outline-btn danger-lite" id="syncLock">🔒 Kunci HP</button></div></aside>`;
+  }
+  function bindSyncControl(item) {
+    $$('.sync-task-btn').forEach(btn=>btn.onclick=()=>openStudentTask(item,Number(btn.dataset.syncTask),false));
+    if($('#syncRefresh'))$('#syncRefresh').onclick=()=>refreshPresentationProgress(true);
+    if($('#syncDetails'))$('#syncDetails').onclick=openClassProgressModal;
+    if($('#syncLock'))$('#syncLock').onclick=lockStudentAccess;
+  }
+  async function autoSyncPresentationItem(item) {
+    if(!state.presentationMode||!state.teacherContext||!state.teacherContext.runId)return;
+    const tasks=Array.isArray(item.student_tasks)?item.student_tasks:[];
+    const key=String(state.stepIndex)+'|'+(tasks[0]&&tasks[0].content_id||'none');
+    if(state.lastAutoSyncKey===key)return;
+    state.lastAutoSyncKey=key;
+    if(tasks.length)await openStudentTask(item,0,true);
+    else await setPresentationSync({presentationStep:state.stepIndex+1,studentOpen:false,activeContentId:'',activeTitle:item.title,unlockContentIds:[],teacherMessage:'Silakan tunggu arahan guru.'},true);
+  }
+  async function setPresentationSync(payload,silent) {
+    if(!state.teacherContext||!state.teacherContext.runId)return;
+    try{
+      const result=await window.MPLS_API.setRunSync(Object.assign({teacherKey:state.teacherContext.teacherKey||state.teacherKey,runId:state.teacherContext.runId,forceFollow:true},payload));
+      state.classSync=result.syncState||state.classSync;state.classProgress=result.classProgress||state.classProgress;
+      updateSyncMetricDom();
+      if(silent && state.presentationMode) renderSession();
+      if(!silent)toast(state.classSync&&state.classSync.studentOpen?'Tahap sudah dibuka di HP siswa.':'Akses HP siswa dikunci.','success');
+    }catch(err){if(!silent)toast(err.message,'error');else console.warn(err);}
+  }
+  async function openStudentTask(item,index,silent) {
+    const tasks=Array.isArray(item.student_tasks)?item.student_tasks:[];const task=tasks[index];if(!task)return;
+    const unlock=tasks.slice(0,index+1).map(x=>x.content_id);
+    await setPresentationSync({presentationStep:state.stepIndex+1,studentOpen:true,activeContentId:task.content_id,activeTitle:task.title,unlockContentIds:unlock,teacherMessage:item.teacher_message||('Buka '+task.title+' dan ikuti arahan guru.')},silent);
+    if(!silent)renderSession();
+  }
+  async function lockStudentAccess(){
+    await setPresentationSync({presentationStep:state.stepIndex+1,studentOpen:false,teacherMessage:'Tetap di halaman ini. Tunggu guru membuka tahap berikutnya.'},false);renderSession();
+  }
+  async function resumePresentationFromSync(){
+    if(!state.presentationMode||!state.teacherContext||!state.teacherContext.runId)return;
+    try{
+      const result=await window.MPLS_API.classProgress({teacherKey:state.teacherContext.teacherKey||state.teacherKey,runId:state.teacherContext.runId});
+      state.classSync=result.syncState;state.classProgress=result.classProgress;
+      const savedStep=Math.max(0,Number(state.classSync&&state.classSync.currentPresentationStep||1)-1);
+      if(state.currentSession&&savedStep<sessionContent().length){state.stepIndex=savedStep;const savedItem=sessionContent()[savedStep];const firstTask=savedItem&&Array.isArray(savedItem.student_tasks)&&savedItem.student_tasks[0];state.lastAutoSyncKey=String(savedStep)+'|'+String(firstTask&&firstTask.content_id||'none');renderSession();scrollPageToTop();}
+      startPresentationProgressPolling();
+    }catch(err){console.warn(err);startPresentationProgressPolling();if(state.currentSession){const item=sessionContent()[state.stepIndex];if(item)autoSyncPresentationItem(item);}}
+  }
+  function startPresentationProgressPolling(){
+    if(!state.presentationMode||!state.teacherContext||!state.teacherContext.runId)return;
+    if(state.presentationProgressPoll)clearInterval(state.presentationProgressPoll);
+    refreshPresentationProgress(false);
+    state.presentationProgressPoll=setInterval(()=>refreshPresentationProgress(false),8000);
+  }
+  async function refreshPresentationProgress(showToast){
+    if(!state.teacherContext||!state.teacherContext.runId)return;
+    try{const result=await window.MPLS_API.classProgress({teacherKey:state.teacherContext.teacherKey||state.teacherKey,runId:state.teacherContext.runId});state.classSync=result.syncState;state.classProgress=result.classProgress;updateSyncMetricDom();if(showToast)toast('Progres siswa diperbarui.','success');}catch(err){if(showToast)toast(err.message,'error');}
+  }
+  function updateSyncMetricDom(){
+    const cp=state.classProgress||{};[['syncJoined','joined'],['syncOnline','online'],['syncOpened','openedActive'],['syncCompleted','completedActive']].forEach(([id,key])=>{const el=$('#'+id);if(el)el.textContent=Number(cp[key]||0);});
+  }
+  function openClassProgressModal(){
+    const cp=state.classProgress||{students:[]};
+    showModal(`<span class="eyebrow">PROGRES HP SISWA</span><h2>${esc(cp.activeTitle||'Tahap aktif')}</h2><div class="progress-kpi-row"><article><small>Terdaftar</small><strong>${Number(cp.joined||0)}</strong></article><article><small>Aktif ≤2 menit</small><strong>${Number(cp.online||0)}</strong></article><article><small>Membuka tahap</small><strong>${Number(cp.openedActive||0)}</strong></article><article><small>Selesai</small><strong>${Number(cp.completedActive||0)}</strong></article></div><div class="student-progress-list">${(cp.students||[]).map(s=>`<article><span class="online-dot ${s.online?'yes':'no'}"></span><div><strong>${esc(s.fullName)}</strong><small>${esc(s.className)} · ${s.completedCount} tahap selesai</small></div><b class="progress-status ${esc(s.activeStatus)}">${esc(({waiting:'Menunggu',opened:'Membuka',working:'Mengerjakan',completed:'Selesai'})[s.activeStatus]||'Menunggu')}</b></article>`).join('')||'<p>Belum ada peserta terdaftar.</p>'}</div><button class="primary-action" id="refreshProgressModal">↻ Segarkan Progres</button>`,root=>{$('#refreshProgressModal',root).onclick=async()=>{await refreshPresentationProgress(true);closeModal();openClassProgressModal();};});
   }
 
   function openPresentationOutline(items) {
@@ -289,7 +444,9 @@
   function nextStep() {
     if (!state.currentSession) return;
     const items = sessionContent();
-    if (state.stepIndex < items.length-1) { state.stepIndex++; setProgress(state.currentSession.session_id, state.stepIndex); renderSession(); scrollPageToTop(); }
+    if (state.stepIndex < items.length-1) {
+      if (!state.presentationMode && isLiveStudentSync() && !itemUnlocked(items[state.stepIndex+1])) return toast('Tahap berikutnya belum dibuka guru.','warning');
+      state.stepIndex++; setProgress(state.currentSession.session_id, state.stepIndex); renderSession(); scrollPageToTop(); }
     else { setProgress(state.currentSession.session_id, items.length); celebrate(); }
   }
   function celebrate() {
@@ -297,6 +454,7 @@
   }
 
   function runAction(item) {
+    if (!state.presentationMode && isLiveStudentSync()) sendStudentProgress('working', item, 'Mengerjakan '+item.title);
     const action = String(item.action || '');
     if (action === 'open_media') window.open(item.media_url, '_blank', 'noopener');
     else if (action === 'open_film') openFilm(item);
@@ -498,7 +656,7 @@
               const session=(state.data.sessions||[]).find(x=>x.session_id===preferredSessionId)||(state.data.sessions||[])[0];
               result={student:{studentId:'DEMO-'+Date.now(),fullName:payload.fullName,className:payload.className,alias:'Bintang-Demo'},run:{runId:'RUN-DEMO',runCode:payload.runCode,sessionId:session.session_id,title:session.title,roomName:'Ruang Demo',status:'open'}};
             }
-            state.student = Object.assign({}, result.student, {run:result.run}); saveJSON('mpls_student', state.student); closeModal(); toast('Selamat datang, '+state.student.fullName+'!', 'success');
+            state.student = Object.assign({}, result.student, {run:result.run}); state.classSync=result.syncState||null; state.lastSyncUpdated=String((state.classSync&&state.classSync.updatedAt)||''); saveJSON('mpls_student', state.student); closeModal(); toast('Selamat datang, '+state.student.fullName+'!', 'success');
             if (after) after(); else renderHome();
           } catch(err) { toast(err.message, 'error'); btn.disabled=false; btn.textContent='Simpan dan Mulai'; }
         };
@@ -559,6 +717,8 @@
   function getQuestions(category) { return (state.data.questions || []).filter(q => q.category === category).sort((a,b)=>Number(a.display_order)-Number(b.display_order)); }
 
   function startQuiz(category) {
+    const currentItem=state.currentSession&&sessionContent()[state.stepIndex];
+    if (!state.presentationMode && isLiveStudentSync()) sendStudentProgress('working',currentItem,'Sedang mengerjakan quiz');
     const questions = getQuestions(category);
     if (!questions.length) return toast('Pertanyaan belum tersedia.', 'warning');
     state.quiz = {category, questions, index:0, score:0, startedAt:Date.now(), answered:false};
@@ -594,6 +754,8 @@
   }
 
   function renderQuizResult() {
+    const currentItem=state.currentSession&&sessionContent()[state.stepIndex];
+    if (!state.presentationMode && isLiveStudentSync()) sendStudentProgress('completed',currentItem,'Quiz selesai',100);
     const qz=state.quiz, max=qz.questions.reduce((s,q)=>s+Number(q.points||0),0), pct=max?Math.round(qz.score/max*100):0;
     app.innerHTML=`<section class="result-screen"><div class="result-ring" style="--score:${pct}"><strong>${pct}%</strong></div><span class="eyebrow">TANTANGAN SELESAI</span><h1>${pct>=80?'Hebat, alasanmu kuat!':pct>=60?'Bagus, terus perkuat!':'Belajar dari umpan balik'}</h1><p>${state.presentationMode?'Skor simulasi kelas':'Kamu memperoleh'} <strong>${qz.score}</strong> dari ${max} poin. ${state.presentationMode?'Nilai ini tidak disimpan dan dapat digunakan sebagai bahan diskusi.':'Yang terpenting adalah memahami alasan di balik setiap keputusan.'}</p><div class="result-actions"><button class="primary-action" id="backMaterial">Kembali ke Materi</button><button class="secondary-action" id="retryQuiz">Ulangi Tantangan</button></div></section>`;
     $('#backMaterial').onclick=renderSession; $('#retryQuiz').onclick=()=>startQuiz(qz.category);
@@ -624,7 +786,7 @@
       return showModal(`<span class="eyebrow">REFLEKSI KELAS</span><h2>Pilih pertanyaan untuk ditanggapi peserta</h2><div class="reflection-prompt-list">${prompts.slice(0,4).map((p,i)=>`<article><span>${i+1}</span><p>${esc(p)}</p></article>`).join('')}</div><div class="note"><strong>Mode presentasi:</strong> jawaban tidak disimpan dari layar guru. Peserta dapat mengirim refleksi melalui perangkatnya, sedangkan siswa tanpa HP dapat dicatat dari Panel Guru.</div>`);
     }
     showModal(`<span class="eyebrow">REFLEKSI PRIBADI</span><h2>Apa yang akan kamu bawa pulang?</h2><form id="reflectionForm" class="form-stack">${prompts.slice(0,4).map((p,i)=>`<label>${esc(p)}<textarea name="a${i}" rows="2" required></textarea></label>`).join('')}<button class="primary-action" type="submit">Simpan Refleksi</button></form>`,root=>{
-      $('#reflectionForm',root).onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),answers=prompts.slice(0,4).map((_,i)=>String(f.get('a'+i)||'').trim());const btn=$('button[type=submit]',root);btn.disabled=true;btn.textContent='Menyimpan...';try{if(window.MPLS_API.isConfigured())await window.MPLS_API.submitReflection({runId:state.student.run&&state.student.run.runId,studentId:state.student.studentId,sessionId,answers});$('#modalContent').innerHTML=`<div class="celebrate"><div class="big-emoji">🌱</div><h2>Refleksimu tersimpan</h2><p>Satu langkah kecil yang dilakukan berulang dapat menjadi perubahan besar.</p></div>`;}catch(err){toast(err.message,'error');btn.disabled=false;btn.textContent='Simpan Refleksi';}};
+      $('#reflectionForm',root).onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),answers=prompts.slice(0,4).map((_,i)=>String(f.get('a'+i)||'').trim());const btn=$('button[type=submit]',root);btn.disabled=true;btn.textContent='Menyimpan...';try{if(window.MPLS_API.isConfigured())await window.MPLS_API.submitReflection({runId:state.student.run&&state.student.run.runId,studentId:state.student.studentId,sessionId,answers});if(isLiveStudentSync())sendStudentProgress('completed',sessionContent()[state.stepIndex],'Refleksi selesai',100);$('#modalContent').innerHTML=`<div class="celebrate"><div class="big-emoji">🌱</div><h2>Refleksimu tersimpan</h2><p>Satu langkah kecil yang dilakukan berulang dapat menjadi perubahan besar.</p></div>`;}catch(err){toast(err.message,'error');btn.disabled=false;btn.textContent='Simpan Refleksi';}};
     });
   }
 

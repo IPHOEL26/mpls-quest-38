@@ -11,7 +11,7 @@
     bootstrap:null,
     teacherKey:sessionStorage.getItem('mpls_teacher_key') || '',
     runs:[], run:null, participants:[], topN:[], finalReport:null,
-    tab:'participants', messageText:'', selectedRunId:'', groups:[],
+    tab:'participants', messageText:'', selectedRunId:'', groups:[], syncState:null, classProgress:null,
     demo:createDemoState()
   };
 
@@ -79,7 +79,7 @@
       let data;
       if (demoMode) data=demoDashboard(runId||state.selectedRunId);
       else data=await window.MPLS_API.teacherDashboard({teacherKey:state.teacherKey,runId:runId||state.selectedRunId});
-      state.runs=data.runs||[];state.run=data.run||null;state.participants=data.participants||[];state.topN=data.topN||[];state.finalReport=data.finalReport||null;state.groups=data.groups||[];state.selectedRunId=state.run?state.run.runId:'';
+      state.runs=data.runs||[];state.run=data.run||null;state.participants=data.participants||[];state.topN=data.topN||[];state.finalReport=data.finalReport||null;state.groups=data.groups||[];state.syncState=data.syncState||null;state.classProgress=data.classProgress||null;state.selectedRunId=state.run?state.run.runId:'';
       if(state.finalReport)state.messageText=state.finalReport.messageText||'';
       renderDashboard();
     } catch(err) {
@@ -92,7 +92,7 @@
     const cfg=state.bootstrap.config||{};
     app.innerHTML=`<header class="teacher-header"><div><span class="eyebrow">${esc(cfg.schoolName||'SEKOLAH')}</span><h1>Dashboard Penilaian MPLS</h1><p>Kelola sesi, kandidat tanpa HP, nilai 0–100, finalisasi, dan laporan WhatsApp.</p></div><div class="header-actions"><button class="teacher-btn presentation" id="presentationMode">📽️ Mode Presentasi</button><button class="teacher-btn secondary" id="switchRun">🗂️ Pilih Sesi</button><button class="teacher-btn primary" id="newRun">＋ Buat Sesi</button>${!demoMode?'<button class="teacher-btn secondary" id="logoutTeacher">Keluar</button>':''}</div></header>
       ${state.run?runBanner():emptyRunBanner()}
-      <nav class="teacher-nav"><button data-tab="runs" class="${state.tab==='runs'?'active':''}">🗓️ Sesi</button><button data-tab="participants" class="${state.tab==='participants'?'active':''}" ${state.run?'':'disabled'}>👥 Peserta & Nilai</button><button data-tab="observe" class="${state.tab==='observe'?'active':''}" ${state.run?'':'disabled'}>📝 Observasi</button><button data-tab="groups" class="${state.tab==='groups'?'active':''}" ${state.run?'':'disabled'}>🎨 Kelompok & Poster</button><button data-tab="topten" class="${state.tab==='topten'?'active':''}" ${state.run?'':'disabled'}>🏆 Top 10 & WhatsApp</button></nav>
+      <nav class="teacher-nav"><button data-tab="runs" class="${state.tab==='runs'?'active':''}">🗓️ Sesi</button><button data-tab="participants" class="${state.tab==='participants'?'active':''}" ${state.run?'':'disabled'}>👥 Peserta & Nilai</button><button data-tab="sync" class="${state.tab==='sync'?'active':''}" ${state.run?'':'disabled'}>📡 Sinkron Kelas</button><button data-tab="observe" class="${state.tab==='observe'?'active':''}" ${state.run?'':'disabled'}>📝 Observasi</button><button data-tab="groups" class="${state.tab==='groups'?'active':''}" ${state.run?'':'disabled'}>🎨 Kelompok & Poster</button><button data-tab="topten" class="${state.tab==='topten'?'active':''}" ${state.run?'':'disabled'}>🏆 Top 10 & WhatsApp</button></nav>
       <div id="teacherBody"></div>`;
     $('#newRun').onclick=openCreateRun;
     $('#presentationMode').onclick=()=>openPresentation(state.run&&state.run.sessionId);
@@ -104,7 +104,7 @@
 
   function runBanner() {
     const r=state.run;
-    return `<section class="run-banner"><div><div><span class="status-pill ${esc(r.status)}">${statusLabel(r.status)}</span></div><h2>${esc(r.title)} · ${esc(r.roomName)}</h2><p>${esc(r.presenter)} · ${esc(r.runDate)} · Mulai ${esc(r.startTime||'-')}</p></div><div class="run-code"><div><small>KODE MASUK SISWA</small><strong>${esc(r.runCode)}</strong></div><button class="teacher-btn success" id="showStudentAccess">▦ QR / Link Siswa</button><button class="teacher-btn light" id="openRunPresentation">📽️ Materi</button><button class="teacher-btn secondary" id="copyRunCode">Salin Kode</button>${r.status==='open'?'<button class="teacher-btn danger" id="deleteTestRun">🗑️ Hapus Data Uji</button>':''}</div></section>`;
+    return `<section class="run-banner"><div><div><span class="status-pill ${esc(r.status)}">${statusLabel(r.status)}</span></div><h2>${esc(r.title)} · ${esc(r.roomName)}</h2><p>${esc(r.presenter)} · ${esc(r.runDate)} · Mulai ${esc(r.startTime||'-')}</p></div><div class="run-code"><div><small>KODE MASUK SISWA</small><strong>${esc(r.runCode)}</strong></div><button class="teacher-btn success" id="showStudentAccess">▦ QR / Link Siswa</button><button class="teacher-btn light" id="openRunPresentation">📽️ Materi</button><button class="teacher-btn light" id="openSyncTab">📡 Progres</button><button class="teacher-btn secondary" id="copyRunCode">Salin Kode</button>${r.status==='open'?'<button class="teacher-btn danger" id="deleteTestRun">🗑️ Hapus Data Uji</button>':''}</div></section>`;
   }
   function emptyRunBanner() { return `<section class="run-banner"><div><h2>Belum ada sesi pelaksanaan</h2><p>Buat sesi untuk menghasilkan kode masuk per ruangan.</p></div><button class="teacher-btn secondary" id="emptyCreate">Buat Sesi Pertama</button></section>`; }
 
@@ -113,8 +113,9 @@
     if($('#showStudentAccess'))$('#showStudentAccess').onclick=openStudentAccess;
     if($('#deleteTestRun'))$('#deleteTestRun').onclick=confirmDeleteTestRun;
     if($('#openRunPresentation'))$('#openRunPresentation').onclick=()=>openPresentation(state.run.sessionId);
+    if($('#openSyncTab'))$('#openSyncTab').onclick=()=>{state.tab='sync';renderDashboard();};
     if($('#emptyCreate'))$('#emptyCreate').onclick=openCreateRun;
-    if(state.tab==='runs')renderRuns();else if(state.tab==='observe')renderObserve();else if(state.tab==='groups')renderGroups();else if(state.tab==='topten')renderTopTen();else renderParticipants();
+    if(state.tab==='runs')renderRuns();else if(state.tab==='sync')renderSyncPanel();else if(state.tab==='observe')renderObserve();else if(state.tab==='groups')renderGroups();else if(state.tab==='topten')renderTopTen();else renderParticipants();
   }
 
   function renderRuns() {
@@ -135,6 +136,15 @@
   function participantTable(rows) {
     if(!rows.length)return '<div class="empty-panel"><div class="emoji">👥</div><h3>Belum ada peserta</h3><p>Siswa dapat masuk menggunakan kode sesi atau guru dapat menambah kandidat tanpa HP.</p></div>';
     return `<div class="score-table-wrap"><table class="score-table"><thead><tr><th>#</th><th>Peserta</th><th>Masuk melalui</th><th>Kuis /40</th><th>Bernalar /20</th><th>Kerja Sama /15</th><th>Kreativitas /15</th><th>Refleksi /10</th><th>Total</th><th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td><span class="rank-badge ${i<10?'top':''}">${i+1}</span></td><td class="person-cell"><strong>${esc(r.fullName)}</strong><small>${esc(r.className)} · ${esc(r.alias)}</small></td><td><span class="mode-tag">${esc(modeLabel(r.entryMode))}</span></td><td><span class="score-chip">${fmt(r.quizScore)}</span></td><td><span class="score-chip">${fmt(r.reasoningScore)}</span><small class="evidence-count">${Number(r.reasoningEvidenceCount||0)} jawaban</small></td><td><span class="score-chip">${fmt(r.collaborationScore)}</span></td><td><span class="score-chip">${fmt(r.creativityScore)}</span></td><td><span class="score-chip">${fmt(r.reflectionScore)}</span></td><td><strong class="total-score">${fmt(r.finalScore)}</strong></td><td>${state.run.status==='open'?`<button class="table-edit" data-student="${esc(r.studentId)}">Edit</button>`:'🔒'}</td></tr>`).join('')}</tbody></table></div>`;
+  }
+
+
+  function renderSyncPanel() {
+    const body=$('#teacherBody');if(!state.run)return renderRuns();
+    const cp=state.classProgress||{students:[]},sync=state.syncState||{};
+    body.innerHTML=`<section class="kpi-grid"><article class="kpi-card"><small>TERDAFTAR</small><strong>${Number(cp.joined||state.participants.length||0)}</strong><span>peserta pada sesi</span></article><article class="kpi-card"><small>AKTIF ≤2 MENIT</small><strong>${Number(cp.online||0)}</strong><span>HP masih terhubung</span></article><article class="kpi-card"><small>MEMBUKA TAHAP</small><strong>${Number(cp.openedActive||0)}</strong><span>${esc(cp.activeTitle||sync.activeTitle||'Belum dibuka')}</span></article><article class="kpi-card"><small>SELESAI</small><strong>${Number(cp.completedActive||0)}</strong><span>pada tahap aktif</span></article></section><section class="teacher-panel"><div class="panel-heading"><div><h2>Sinkronisasi materi dan HP siswa</h2><p>Status saat ini: <strong>${sync.studentOpen?'HP siswa dibuka':'HP siswa dikunci'}</strong> · ${esc(sync.activeTitle||'Menunggu arahan')}</p></div><div class="panel-actions"><button class="teacher-btn presentation" id="syncOpenPresentation">📽️ Buka Presentasi</button><button class="teacher-btn secondary" id="syncRefreshPanel">↻ Segarkan</button></div></div><div class="class-progress-table">${(cp.students||[]).length?`<table><thead><tr><th>Peserta</th><th>Status koneksi</th><th>Tahap aktif</th><th>Tahap selesai</th></tr></thead><tbody>${cp.students.map(s=>`<tr><td><strong>${esc(s.fullName)}</strong><small>${esc(s.className)}</small></td><td><span class="online-label ${s.online?'yes':'no'}">${s.online?'● Aktif':'○ Tidak aktif'}</span></td><td><span class="progress-status ${esc(s.activeStatus||'waiting')}">${esc(({waiting:'Menunggu',opened:'Membuka',working:'Mengerjakan',completed:'Selesai'})[s.activeStatus]||'Menunggu')}</span></td><td><strong>${Number(s.completedCount||0)}</strong></td></tr>`).join('')}</tbody></table>`:'<div class="empty-panel"><div class="emoji">📡</div><p>Belum ada progres HP siswa. Bagikan QR dan buka Mode Presentasi.</p></div>'}</div></section>`;
+    $('#syncOpenPresentation').onclick=()=>openPresentation(state.run.sessionId);
+    $('#syncRefreshPanel').onclick=async()=>{try{if(!demoMode){const r=await window.MPLS_API.classProgress({teacherKey:state.teacherKey,runId:state.run.runId});state.syncState=r.syncState;state.classProgress=r.classProgress;}renderSyncPanel();toast('Progres diperbarui.','success');}catch(err){toast(err.message,'error');}};
   }
 
   function renderObserve() {

@@ -13,6 +13,8 @@
         {icon:'🎰',title:'Permainan Berisiko',text:'Tampilan menarik dapat menyembunyikan kerugian dan kecanduan.'},
         {icon:'🤝',title:'Berani Minta Bantuan',text:'Orang tua, wali, guru, dan konselor adalah tempat aman untuk bercerita.'}
       ],
+      student_tasks:[{content_id:'D-01',title:'Misi Literasi Digital',type:'view'}],
+      teacher_message:'Buka Misi Literasi Digital dan simak pengantar dari guru.',
       teacher_cue:'Bacakan pengantar dengan tenang. Hindari menyalahkan korban dan tekankan bahwa tujuan kegiatan adalah perlindungan diri.'
     },
     {
@@ -28,6 +30,8 @@
         {id:'PEM-04',question:'Menurut kalian, apa saja potensi bahaya dari judi online?',answer:'Bahaya judi online mencakup kerugian keuangan, ketagihan, stres dan kecemasan, rusaknya hubungan keluarga atau pertemanan, gangguan belajar, penyalahgunaan data pribadi, dan terganggunya masa depan.'},
         {id:'PEM-05',question:'Apa yang sebaiknya dilakukan ketika menerima tautan atau ajakan yang menjanjikan uang cepat?',answer:'Jangan klik atau mengirim uang. Hentikan komunikasi, blokir dan laporkan akun, simpan bukti seperlunya, serta ceritakan kepada orang tua, wali, guru, atau orang dewasa tepercaya.'}
       ],
+      student_tasks:[{content_id:'D-02',title:'Target Petualangan',type:'view'}],
+      teacher_message:'Baca target pembelajaran. Tetap di tahap ini sampai guru melanjutkan.',
       teacher_cue:'Setelah setiap pertanyaan, beri jeda 20–30 detik dan kesempatan kepada 2–3 murid untuk menjawab. Tanggapi dengan apresiasi, bukan penghakiman.'
     },
     {
@@ -37,6 +41,8 @@
       body:'Saksikan film dari awal hingga akhir. Ajak murid memperhatikan tiga hal: bagaimana tokoh mulai terlibat, dampak yang muncul, dan keputusan aman yang seharusnya dapat diambil.',
       duration_minutes:17, icon:'🎬', accent:'pink', action:'open_film', action_label:'Putar Film Kemenangan Sejati',
       media_url:'https://youtu.be/xJD37cmYPws', youtube_id:'xJD37cmYPws', is_active:true,
+      student_tasks:[{content_id:'D-04',title:'Film Kemenangan Sejati',type:'video'}],
+      teacher_message:'Film sudah dibuka. Saksikan bersama dan perhatikan tiga fokus pengamatan.',
       teacher_cue:'Gunakan mode layar penuh dan pastikan suara terdengar. Setelah film selesai, kembali ke aplikasi untuk masuk ke kegiatan refleksi.'
     },
     {
@@ -53,56 +59,83 @@
         {id:'REF-05',question:'Apabila kamu atau temanmu berada dalam situasi serupa, tindakan apa yang akan kamu lakukan?',answer:'Berhenti bermain dan tidak mengirim uang, menjauh dari tautan atau akun, menyimpan bukti seperlunya, mengajak teman mencari bantuan, serta tidak menyelesaikan masalah sendirian.'},
         {id:'REF-06',question:'Siapa yang harus kamu mintai bantuan atau nasihat?',answer:'Mintalah bantuan kepada orang tua atau wali, guru, wali kelas, guru BK atau konselor sekolah, dan pihak berwenang bila diperlukan.'}
       ],
+      student_tasks:[{content_id:'D-05',title:'Refleksi Film',type:'discussion'}],
+      teacher_message:'Ikuti diskusi dan siapkan jawaban. Guru akan memberi kesempatan menjawab.',
       key_message:'Mencari bantuan bukan tanda kelemahan. Berhenti, jangan mengirim uang, simpan bukti seperlunya, blokir akun mencurigakan, dan segera ceritakan kepada orang dewasa tepercaya.'
     },
     {
       content_id:'P-D5', session_id:'DIGI-WED', display_order:5,
+      activity:'KEGIATAN 2', activity_title:'Aktivitas HP Siswa: Quiz Aman Digital',
+      type:'activity', template:'student_activity', title:'Saatnya Quiz Aman Digital di HP Siswa',
+      body:'Arahkan murid membuka tahap Quiz Aman Digital pada HP. Soal menguji pengenalan risiko, tindakan aman, dan prinsip 3S. Nilai jawaban otomatis masuk ke Panel Guru. Murid yang tidak memiliki HP tetap dapat dinilai melalui observasi atau nilai manual.',
+      duration_minutes:7, icon:'🎮', accent:'blue', action:'none', action_label:'', media_url:'', is_active:true,
+      student_tasks:[
+        {content_id:'D-06',title:'Quiz Aman Digital',type:'quiz'},
+        {content_id:'D-07',title:'Berani Mencari Bantuan',type:'view'}
+      ],
+      teacher_message:'Kerjakan Quiz Aman Digital sekarang. Setelah selesai, baca langkah berani mencari bantuan.',
+      teacher_cue:'Klik Buka Quiz di HP Siswa. Pantau jumlah murid yang sudah membuka dan menyelesaikan. Setelah mayoritas selesai, buka tahap Berani Mencari Bantuan.'
+    },
+    {
+      content_id:'P-D6', session_id:'DIGI-WED', display_order:6,
       activity:'KEGIATAN 3', activity_title:'Kampanye 3S: Screen Time, Screen Zone, Screen Break',
       type:'poll', template:'habit_check', title:'Cek Kebiasaan Digital Kelas',
       body:'Guru membacakan pernyataan. Murid mengangkat tangan apabila pernah melakukannya. Tekankan bahwa kegiatan ini bukan untuk mempermalukan siapa pun, melainkan untuk mengenali kebiasaan dan memilih perubahan kecil yang realistis.',
       duration_minutes:3, icon:'🙋', accent:'orange', action:'habit_poll', action_label:'Mulai Cek Kebiasaan', media_url:'', is_active:true,
-      statements:['Main gawai sampai lupa waktu.','Tidur sambil membawa gawai.','Makan sambil menonton video atau televisi.','Belajar sambil membuka banyak aktivitas.']
+      statements:['Main gawai sampai lupa waktu.','Tidur sambil membawa gawai.','Makan sambil menonton video atau televisi.','Belajar sambil membuka banyak aktivitas.'],
+      student_tasks:[{content_id:'D-03',title:'Cek Kebiasaan Digital',type:'poll'}],
+      teacher_message:'Ikuti cek kebiasaan digital dengan jujur. Jawaban tidak digunakan untuk mempermalukan siapa pun.'
     },
     {
-      content_id:'P-D6', session_id:'DIGI-WED', display_order:6,
+      content_id:'P-D7', session_id:'DIGI-WED', display_order:7,
       activity:'KEGIATAN 3', activity_title:'Kampanye 3S: Screen Time, Screen Zone, Screen Break',
       type:'info', template:'three_s_material', title:'Kenali Prinsip 3S',
       body:'Screen Time adalah waktu yang dihabiskan menatap layar. Screen Zone adalah kesepakatan tentang tempat dan situasi penggunaan gawai. Screen Break adalah jeda dari layar untuk bergerak, berinteraksi, dan melakukan kegiatan bermakna.',
       duration_minutes:4, icon:'3S', accent:'cyan', action:'open_3s_material', action_label:'Tampilkan Materi 3S',
       media_url:'https://drive.google.com/file/d/1kyTPhTxoRpRaxnhEmQnfvduz5P6aVSd2/view', image_url:'./assets/materi-prinsip-3s.jpg', is_active:true,
+      student_tasks:[{content_id:'D-08',title:'Prinsip 3S',type:'view'}],
+      teacher_message:'Buka kartu Prinsip 3S dan simak penjelasan guru.',
       teacher_cue:'Jelaskan bahwa 3S bukan larangan total menggunakan teknologi. Tujuannya adalah agar penggunaan gawai lebih sehat, aman, dan seimbang.'
     },
     {
-      content_id:'P-D7', session_id:'DIGI-WED', display_order:7,
+      content_id:'P-D8', session_id:'DIGI-WED', display_order:8,
       activity:'KEGIATAN 3', activity_title:'Kampanye 3S: Screen Time, Screen Zone, Screen Break',
       type:'group_task', template:'group_builder', title:'Bagi Murid Menjadi Kelompok',
       body:'Atur jumlah kelompok, nama kelompok, jumlah murid, dan warna bola. Aplikasi akan membagi anggota secara merata. Panggil murid satu per satu, lalu tekan tombol Ambil Bola untuk menunjukkan kelompoknya.',
       duration_minutes:4, icon:'🎨', accent:'violet', action:'group_builder', action_label:'Buka Pembagi Kelompok', media_url:'', is_active:true,
-      suggested_groups:['Screen Time','Screen Zone','Screen Break']
+      suggested_groups:['Screen Time','Screen Zone','Screen Break'],
+      student_tasks:[{content_id:'D-09',title:'Kampanye 3S',type:'group'}],
+      teacher_message:'Perhatikan pembagian kelompok dan tugas kampanye 3S.'
     },
     {
-      content_id:'P-D8', session_id:'DIGI-WED', display_order:8,
+      content_id:'P-D9', session_id:'DIGI-WED', display_order:9,
       activity:'KEGIATAN 3', activity_title:'Kampanye 3S: Screen Time, Screen Zone, Screen Break',
       type:'group_task', template:'poster_workshop', title:'Lokakarya Poster Kampanye 3S',
       body:'Setiap kelompok membuat poster sesuai misinya. Kelompok Screen Time membuat aturan waktu layar. Kelompok Screen Zone membuat aturan tempat dan situasi penggunaan gawai. Kelompok Screen Break membuat daftar kegiatan bermakna selain menatap layar.',
       duration_minutes:10, icon:'🖍️', accent:'orange', action:'poster_workshop', action_label:'Mulai Lokakarya Poster', media_url:'', is_active:true,
       materials:['Kertas karton','Pensil warna, spidol, atau crayon','Selotip atau perekat kertas'],
-      poster_steps:['Tentukan pesan utama.','Tuliskan 3–5 contoh tindakan nyata.','Buat judul dan gambar yang mudah dibaca.','Pastikan seluruh anggota mendapat peran.']
+      poster_steps:['Tentukan pesan utama.','Tuliskan 3–5 contoh tindakan nyata.','Buat judul dan gambar yang mudah dibaca.','Pastikan seluruh anggota mendapat peran.'],
+      student_tasks:[{content_id:'D-09',title:'Kampanye 3S',type:'group'}],
+      teacher_message:'Kerjakan poster sesuai kelompok. Pastikan semua anggota mendapat peran.'
     },
     {
-      content_id:'P-D9', session_id:'DIGI-WED', display_order:9,
+      content_id:'P-D10', session_id:'DIGI-WED', display_order:10,
       activity:'KEGIATAN 3', activity_title:'Kampanye 3S: Screen Time, Screen Zone, Screen Break',
       type:'presentation', template:'group_presentations', title:'Presentasi Poster di Depan Kelas',
       body:'Masing-masing kelompok mempresentasikan posternya. Kelompok lain mendengarkan, memberi satu apresiasi, dan satu saran perbaikan. Guru menegaskan kembali pesan inti dari setiap prinsip 3S.',
       duration_minutes:7, icon:'🎤', accent:'green', action:'group_presentations', action_label:'Mulai Presentasi Kelompok', media_url:'', is_active:true,
-      presentation_prompts:['Apa aturan utama kelompok kalian?','Mengapa aturan itu penting?','Contoh penerapannya di rumah atau sekolah?','Apa tantangan yang mungkin muncul dan bagaimana mengatasinya?']
+      presentation_prompts:['Apa aturan utama kelompok kalian?','Mengapa aturan itu penting?','Contoh penerapannya di rumah atau sekolah?','Apa tantangan yang mungkin muncul dan bagaimana mengatasinya?'],
+      student_tasks:[{content_id:'D-10',title:'Galeri Kampanye',type:'presentation'}],
+      teacher_message:'Simak presentasi kelompok dan siapkan satu apresiasi serta satu saran.'
     },
     {
-      content_id:'P-D10', session_id:'DIGI-WED', display_order:10,
+      content_id:'P-D11', session_id:'DIGI-WED', display_order:11,
       activity:'PENUTUP', activity_title:'Pesan Moral dan Penguatan',
       type:'closing', template:'moral_closing', title:'Jadilah Pengguna Digital yang Cerdas dan Berani',
       body:'Teknologi seharusnya membantu kita belajar dan bertumbuh, bukan mengendalikan hidup kita. Tawaran uang instan dapat menjadi jebakan. Mengatur waktu, tempat, dan jeda layar adalah bentuk menjaga diri. Ketika menghadapi masalah digital, berani berkata tidak dan meminta bantuan adalah kemenangan sejati.',
       duration_minutes:2, icon:'🌟', accent:'green', action:'moral_closing', action_label:'Tampilkan Pesan Penguatan', media_url:'', is_active:true,
+      student_tasks:[{content_id:'D-11',title:'Komitmen Digital Sehat',type:'reflection'}],
+      teacher_message:'Isi komitmen digital sehat setelah pesan penguatan selesai.',
       morals:[
         'Tidak semua yang menarik di internet aman untuk diikuti.',
         'Uang instan dan bonus besar dapat menjadi pintu masuk jebakan.',
@@ -114,7 +147,7 @@
   ];
 
   window.MPLS_PRESENTATION_DATA = Object.freeze({
-    version:'1.3.0',
+    version:'1.7.0',
     sessions:{
       'DIGI-WED':{
         session_id:'DIGI-WED', day_label:'Rabu', title:'Literasi Digital',
