@@ -24,6 +24,10 @@
   function statusLabel(status) { return status==='finalized'?'Difinalisasi':'Berlangsung'; }
   function modeLabel(mode) { return mode==='teacher_candidate'?'Kandidat tanpa HP':mode==='assisted'?'Dibantu guru':'Registrasi HP'; }
   function componentLabel(c) { return ({reasoning:'Bernalar',collaboration:'Kerja Sama',creativity:'Kreativitas',responsibility:'Tanggung Jawab'})[c] || c; }
+  function openPresentation(sessionId) {
+    const query = sessionId ? '&session=' + encodeURIComponent(sessionId) : '';
+    window.open('./index.html?mode=presentation' + query, '_blank', 'noopener');
+  }
 
   async function init() {
     state.bootstrap=await window.MPLS_API.bootstrap();
@@ -61,11 +65,12 @@
 
   function renderDashboard() {
     const cfg=state.bootstrap.config||{};
-    app.innerHTML=`<header class="teacher-header"><div><span class="eyebrow">${esc(cfg.schoolName||'SEKOLAH')}</span><h1>Dashboard Penilaian MPLS</h1><p>Kelola sesi, kandidat tanpa HP, nilai 0–100, finalisasi, dan laporan WhatsApp.</p></div><div class="header-actions"><button class="teacher-btn secondary" id="switchRun">🗂️ Pilih Sesi</button><button class="teacher-btn primary" id="newRun">＋ Buat Sesi</button>${!demoMode?'<button class="teacher-btn secondary" id="logoutTeacher">Keluar</button>':''}</div></header>
+    app.innerHTML=`<header class="teacher-header"><div><span class="eyebrow">${esc(cfg.schoolName||'SEKOLAH')}</span><h1>Dashboard Penilaian MPLS</h1><p>Kelola sesi, kandidat tanpa HP, nilai 0–100, finalisasi, dan laporan WhatsApp.</p></div><div class="header-actions"><button class="teacher-btn presentation" id="presentationMode">📽️ Mode Presentasi</button><button class="teacher-btn secondary" id="switchRun">🗂️ Pilih Sesi</button><button class="teacher-btn primary" id="newRun">＋ Buat Sesi</button>${!demoMode?'<button class="teacher-btn secondary" id="logoutTeacher">Keluar</button>':''}</div></header>
       ${state.run?runBanner():emptyRunBanner()}
       <nav class="teacher-nav"><button data-tab="runs" class="${state.tab==='runs'?'active':''}">🗓️ Sesi</button><button data-tab="participants" class="${state.tab==='participants'?'active':''}" ${state.run?'':'disabled'}>👥 Peserta & Nilai</button><button data-tab="observe" class="${state.tab==='observe'?'active':''}" ${state.run?'':'disabled'}>📝 Observasi</button><button data-tab="topten" class="${state.tab==='topten'?'active':''}" ${state.run?'':'disabled'}>🏆 Top 10 & WhatsApp</button></nav>
       <div id="teacherBody"></div>`;
     $('#newRun').onclick=openCreateRun;
+    $('#presentationMode').onclick=()=>openPresentation(state.run&&state.run.sessionId);
     $('#switchRun').onclick=()=>{state.tab='runs';renderDashboard();};
     if($('#logoutTeacher'))$('#logoutTeacher').onclick=()=>{sessionStorage.removeItem('mpls_teacher_key');state.teacherKey='';renderLogin();};
     $$('.teacher-nav button').forEach(b=>b.onclick=()=>{if(b.disabled)return;state.tab=b.dataset.tab;renderBody();$$('.teacher-nav button').forEach(x=>x.classList.toggle('active',x.dataset.tab===state.tab));});
@@ -74,12 +79,13 @@
 
   function runBanner() {
     const r=state.run;
-    return `<section class="run-banner"><div><div><span class="status-pill ${esc(r.status)}">${statusLabel(r.status)}</span></div><h2>${esc(r.title)} · ${esc(r.roomName)}</h2><p>${esc(r.presenter)} · ${esc(r.runDate)} · Mulai ${esc(r.startTime||'-')}</p></div><div class="run-code"><div><small>KODE MASUK SISWA</small><strong>${esc(r.runCode)}</strong></div><button class="teacher-btn secondary" id="copyRunCode">Salin</button></div></section>`;
+    return `<section class="run-banner"><div><div><span class="status-pill ${esc(r.status)}">${statusLabel(r.status)}</span></div><h2>${esc(r.title)} · ${esc(r.roomName)}</h2><p>${esc(r.presenter)} · ${esc(r.runDate)} · Mulai ${esc(r.startTime||'-')}</p></div><div class="run-code"><div><small>KODE MASUK SISWA</small><strong>${esc(r.runCode)}</strong></div><button class="teacher-btn light" id="openRunPresentation">📽️ Materi</button><button class="teacher-btn secondary" id="copyRunCode">Salin</button></div></section>`;
   }
   function emptyRunBanner() { return `<section class="run-banner"><div><h2>Belum ada sesi pelaksanaan</h2><p>Buat sesi untuk menghasilkan kode masuk per ruangan.</p></div><button class="teacher-btn secondary" id="emptyCreate">Buat Sesi Pertama</button></section>`; }
 
   function renderBody() {
     if($('#copyRunCode'))$('#copyRunCode').onclick=()=>copyText(state.run.runCode,'Kode sesi disalin.');
+    if($('#openRunPresentation'))$('#openRunPresentation').onclick=()=>openPresentation(state.run.sessionId);
     if($('#emptyCreate'))$('#emptyCreate').onclick=openCreateRun;
     if(state.tab==='runs')renderRuns();else if(state.tab==='observe')renderObserve();else if(state.tab==='topten')renderTopTen();else renderParticipants();
   }

@@ -3,11 +3,14 @@
   const $ = (s, root=document) => root.querySelector(s);
   const $$ = (s, root=document) => Array.from(root.querySelectorAll(s));
   const app = $('#app');
+  const urlParams = new URLSearchParams(window.location.search);
+  const presentationMode = urlParams.get('mode') === 'presentation';
+  const preferredPresentationSession = urlParams.get('session') || '';
 
   const state = {
     data:null, currentSession:null, stepIndex:0,
     student:loadJSON('mpls_student'), progress:loadJSON('mpls_progress') || {},
-    quiz:null, timer:{seconds:0, initial:0, running:false, handle:null}, teacherKey:''
+    quiz:null, timer:{seconds:0, initial:0, running:false, handle:null}, teacherKey:'', presentationMode
   };
 
   function esc(value) {
@@ -33,7 +36,7 @@
     if (bind) bind($('#modalContent'));
   }
   function closeModal() { $('#modal').classList.add('hidden'); $('#modalContent').innerHTML=''; }
-  function setProgress(sessionId, step) { state.progress[sessionId] = Math.max(Number(state.progress[sessionId] || 0), step); saveJSON('mpls_progress', state.progress); }
+  function setProgress(sessionId, step) { if (state.presentationMode) return; state.progress[sessionId] = Math.max(Number(state.progress[sessionId] || 0), step); saveJSON('mpls_progress', state.progress); }
 
   async function init() {
     state.data = await window.MPLS_API.bootstrap();
@@ -41,11 +44,13 @@
     $('#brandTitle').textContent = cfg.appTitle || 'MPLS Quest 38';
     $('#brandSchool').textContent = cfg.schoolName || 'Sekolah';
     const badge = $('#connectionBadge');
-    badge.textContent = state.data.mode === 'live' ? 'Tersambung' : 'Mode Demo';
-    badge.className = 'connection ' + (state.data.mode === 'live' ? 'live' : 'demo');
+    document.body.classList.toggle('presentation-mode', state.presentationMode);
+    badge.textContent = state.presentationMode ? 'Mode Presentasi' : (state.data.mode === 'live' ? 'Tersambung' : 'Mode Demo');
+    badge.className = 'connection ' + (state.presentationMode || state.data.mode === 'live' ? 'live' : 'demo');
     if (state.data.apiError) toast('API belum tersambung. Aplikasi memakai data demo.', 'warning');
     renderHome();
     bindGlobal();
+    if (state.presentationMode && preferredPresentationSession) setTimeout(() => beginSession(preferredPresentationSession), 0);
     if ('serviceWorker' in navigator && window.MPLS_APP_CONFIG.ENABLE_SERVICE_WORKER && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(console.warn);
   }
 
@@ -70,57 +75,64 @@
     state.currentSession = null; state.quiz = null; closeTimer();
     const cfg = state.data.config || {};
     const sessions = (state.data.sessions || []).sort((a,b) => Number(a.display_order)-Number(b.display_order));
-    app.innerHTML = `
-      <section class="hero">
-        <div class="hero-copy">
-          <span class="eyebrow">MASA PENGENALAN LINGKUNGAN SEKOLAH</span>
-          <h1>${esc(cfg.tagline || 'Kenali Sekolahmu, Temukan Potensimu!')}</h1>
-          <p>${esc(cfg.welcome || 'Belajar dan bertumbuh bersama.')}</p>
+    const identityBlock = state.presentationMode ? `
+          <div class="student-chip presentation-chip">
+            <span>📽️</span>
+            <div><small>MODE PRESENTASI GURU</small><strong>Materi dibuka tanpa mendaftarkan guru dan tanpa menyimpan nilai.</strong></div>
+            <button id="studentEdit">Panel Guru</button>
+          </div>` : `
           <div class="student-chip ${state.student ? '' : 'empty'}">
             <span>${state.student ? '👋' : '👤'}</span>
             <div><small>${state.student ? 'Peserta aktif · '+esc((state.student.run&&state.student.run.runCode)||'DEMO') : 'Belum terdaftar'}</small><strong>${state.student ? esc(state.student.fullName)+' · '+esc(state.student.className)+(state.student.run?' · '+esc(state.student.run.roomName):'') : 'Masukkan kode sesi sebelum memulai'}</strong></div>
             <button id="studentEdit">${state.student ? 'Ganti sesi' : 'Masuk sesi'}</button>
-          </div>
+          </div>`;
+    app.innerHTML = `
+      <section class="hero ${state.presentationMode?'presentation-hero':''}">
+        <div class="hero-copy">
+          <span class="eyebrow">${state.presentationMode?'MODE PRESENTASI PEMATERI':'MASA PENGENALAN LINGKUNGAN SEKOLAH'}</span>
+          <h1>${esc(state.presentationMode?'Pilih materi dan tampilkan ke kelas':(cfg.tagline || 'Kenali Sekolahmu, Temukan Potensimu!'))}</h1>
+          <p>${esc(state.presentationMode?'Gunakan layar penuh, navigasi pos, timer, video, diskusi, dan kuis kelas. Aktivitas pada mode ini tidak masuk ke nilai peserta.':(cfg.welcome || 'Belajar dan bertumbuh bersama.'))}</p>
+          ${identityBlock}
         </div>
-        <div class="hero-orbit" aria-hidden="true"><span>📚</span><span>🛡️</span><span>🎮</span><span>🌟</span><div class="orbit-core">38</div></div>
+        <div class="hero-orbit" aria-hidden="true"><span>📚</span><span>🛡️</span><span>🎮</span><span>🌟</span><div class="orbit-core">${state.presentationMode?'▶':'38'}</div></div>
       </section>
       <section class="section-block">
-        <div class="section-heading"><div><span class="eyebrow">PILIH MISI</span><h2>Dua hari, dua petualangan</h2></div><button class="text-btn" id="leaderboardButton">🏆 Lihat Peringkat</button></div>
+        <div class="section-heading"><div><span class="eyebrow">${state.presentationMode?'PILIH MATERI':'PILIH MISI'}</span><h2>${state.presentationMode?'Materi yang akan ditampilkan':'Dua hari, dua petualangan'}</h2></div>${state.presentationMode?'<button class="text-btn" id="leaderboardButton">← Kembali ke Panel Guru</button>':'<button class="text-btn" id="leaderboardButton">🏆 Lihat Peringkat</button>'}</div>
         <div class="session-grid">${sessions.map(sessionCard).join('')}</div>
       </section>
       <section class="feature-strip">
-        <article><span>🎯</span><strong>Materi Ringkas</strong><small>Satu layar, satu tujuan</small></article>
-        <article><span>🎮</span><strong>Game Edukatif</strong><small>Umpan balik langsung</small></article>
+        <article><span>📽️</span><strong>${state.presentationMode?'Tanpa Registrasi':'Materi Ringkas'}</strong><small>${state.presentationMode?'Guru tidak masuk daftar peserta':'Satu layar, satu tujuan'}</small></article>
+        <article><span>🎮</span><strong>Game Edukatif</strong><small>${state.presentationMode?'Untuk diskusi kelas':'Umpan balik langsung'}</small></article>
         <article><span>⏱️</span><strong>Timer Kegiatan</strong><small>Cocok untuk proyektor</small></article>
-        <article><span>📝</span><strong>Nilai 0–100</strong><small>Tersimpan per ruangan</small></article>
+        <article><span>${state.presentationMode?'🔒':'📝'}</span><strong>${state.presentationMode?'Tidak Menyimpan Nilai':'Nilai 0–100'}</strong><small>${state.presentationMode?'Aman untuk demonstrasi guru':'Tersimpan per ruangan'}</small></article>
       </section>`;
-    $('#studentEdit').onclick = openRegistration;
-    $('#leaderboardButton').onclick = openLeaderboard;
+    $('#studentEdit').onclick = state.presentationMode ? (()=>window.location.href='./teacher.html') : openRegistration;
+    $('#leaderboardButton').onclick = state.presentationMode ? (()=>window.location.href='./teacher.html') : openLeaderboard;
     $$('.session-card').forEach(card => card.addEventListener('click', () => beginSession(card.dataset.id)));
   }
 
   function sessionCard(s) {
     const total = (state.data.content || []).filter(c => c.session_id === s.session_id).length || 1;
-    const done = Math.min(total, Number(state.progress[s.session_id] || 0));
+    const done = state.presentationMode ? 0 : Math.min(total, Number(state.progress[s.session_id] || 0));
     const pct = Math.round(done/total*100);
     return `<button class="session-card ${accentClass(s.accent)}" data-id="${esc(s.session_id)}">
       <div class="session-top"><span class="session-icon">${esc(s.icon)}</span><span class="day-pill">${esc(s.day_label)}</span></div>
       <h3>${esc(s.title)}</h3><p>${esc(s.subtitle)}</p>
       <div class="session-meta"><span>⏱ ${esc(s.duration_minutes)} menit</span><span>${done}/${total} pos</span></div>
-      <div class="progress"><i style="width:${pct}%"></i></div><span class="card-cta">Mulai misi →</span>
+      <div class="progress"><i style="width:${pct}%"></i></div><span class="card-cta">${state.presentationMode?'Tampilkan materi →':'Mulai misi →'}</span>
     </button>`;
   }
 
   function beginSession(id) {
     const go = () => {
-      if (window.MPLS_API.isConfigured() && state.student && state.student.run && state.student.run.sessionId !== id) {
+      if (!state.presentationMode && window.MPLS_API.isConfigured() && state.student && state.student.run && state.student.run.sessionId !== id) {
         return showModal(`<div class="empty-state"><div class="big-emoji">🔑</div><h2>Kode sesi berbeda</h2><p>Kode <strong>${esc(state.student.run.runCode)}</strong> digunakan untuk <strong>${esc(state.student.run.title)}</strong> di ${esc(state.student.run.roomName)}.</p><button class="primary-action" id="joinOther">Masuk dengan kode lain</button></div>`, root => $('#joinOther',root).onclick = () => openRegistration(go, id));
       }
       state.currentSession = (state.data.sessions || []).find(s => s.session_id === id);
-      state.stepIndex = Math.min(Number(state.progress[id] || 0), Math.max(0, sessionContent().length-1));
+      state.stepIndex = state.presentationMode ? 0 : Math.min(Number(state.progress[id] || 0), Math.max(0, sessionContent().length-1));
       renderSession();
     };
-    if (!state.student) openRegistration(go, id); else go();
+    if (state.presentationMode) go(); else if (!state.student) openRegistration(go, id); else go();
   }
 
   function sessionContent() {
@@ -135,8 +147,8 @@
     const pct = Math.round((state.stepIndex+1)/items.length*100);
     app.innerHTML = `
       <section class="session-header ${accentClass(state.currentSession.accent)}">
-        <button class="back-btn" id="backHome">← Beranda</button>
-        <div><span class="eyebrow">${esc(state.currentSession.day_label)} · ${esc(state.currentSession.duration_minutes)} MENIT</span><h1>${esc(state.currentSession.title)}</h1><p>${esc(state.currentSession.subtitle)}</p></div>
+        <button class="back-btn" id="backHome">← ${state.presentationMode?'Pilih Materi':'Beranda'}</button>
+        <div>${state.presentationMode?'<span class="presentation-tag">📽️ MODE PRESENTASI · TIDAK MENYIMPAN NILAI</span>':''}<span class="eyebrow">${esc(state.currentSession.day_label)} · ${esc(state.currentSession.duration_minutes)} MENIT</span><h1>${esc(state.currentSession.title)}</h1><p>${esc(state.currentSession.subtitle)}</p></div>
         <div class="session-score"><small>PROGRES</small><strong>${pct}%</strong></div>
       </section>
       <div class="journey-layout">
@@ -172,7 +184,7 @@
     else { setProgress(state.currentSession.session_id, items.length); celebrate(); }
   }
   function celebrate() {
-    showModal(`<div class="celebrate"><div class="big-emoji">🎉</div><span class="eyebrow">MISI SELESAI</span><h2>${esc(state.currentSession.title)} selesai!</h2><p>Kamu sudah melewati seluruh pos. Ingat, nilai terbesar dari kegiatan ini adalah keputusan baik yang kamu praktikkan setelahnya.</p><button class="primary-action" id="finishHome">Kembali ke Beranda</button></div>`, root => $('#finishHome',root).onclick = () => { closeModal(); renderHome(); });
+    showModal(`<div class="celebrate"><div class="big-emoji">🎉</div><span class="eyebrow">${state.presentationMode?'PRESENTASI SELESAI':'MISI SELESAI'}</span><h2>${esc(state.currentSession.title)} selesai!</h2><p>${state.presentationMode?'Seluruh pos materi telah ditampilkan. Hasil peserta tetap dikumpulkan melalui perangkat siswa dan Panel Guru.':'Kamu sudah melewati seluruh pos. Ingat, nilai terbesar dari kegiatan ini adalah keputusan baik yang kamu praktikkan setelahnya.'}</p><button class="primary-action" id="finishHome">${state.presentationMode?'Pilih Materi Lain':'Kembali ke Beranda'}</button></div>`, root => $('#finishHome',root).onclick = () => { closeModal(); renderHome(); });
   }
 
   function runAction(item) {
@@ -190,6 +202,7 @@
   }
 
   function openRegistration(after, preferredSessionId) {
+    if (state.presentationMode) return toast('Mode presentasi tidak memerlukan pendaftaran peserta.', 'info');
     const s = state.student || {}, run = s.run || {};
     const preferred = (state.data.sessions || []).find(x => x.session_id === preferredSessionId);
     showModal(`<span class="eyebrow">MASUK SESI MPLS</span><h2>Daftar cepat sebelum memulai</h2><p>Masukkan kode yang ditampilkan guru. Nama lengkap hanya berada pada data privat; papan apresiasi memakai alias.</p>
@@ -295,7 +308,7 @@
     $$('.option-btn').forEach(b=>b.disabled=true);
     let result;
     try {
-      if (window.MPLS_API.isConfigured()) result = await window.MPLS_API.submitResponse({runId:state.student.run&&state.student.run.runId,studentId:state.student.studentId,questionId:q.question_id,answer,responseTimeSec:Math.round((Date.now()-qz.startedAt)/1000)});
+      if (!state.presentationMode && window.MPLS_API.isConfigured()) result = await window.MPLS_API.submitResponse({runId:state.student.run&&state.student.run.runId,studentId:state.student.studentId,questionId:q.question_id,answer,responseTimeSec:Math.round((Date.now()-qz.startedAt)/1000)});
       else {
         const local=(window.MPLS_FALLBACK_DATA.questions||[]).find(x=>x.question_id===q.question_id);
         const ok=String(local.correct_answer).toUpperCase()===answer;
@@ -310,7 +323,7 @@
 
   function renderQuizResult() {
     const qz=state.quiz, max=qz.questions.reduce((s,q)=>s+Number(q.points||0),0), pct=max?Math.round(qz.score/max*100):0;
-    app.innerHTML=`<section class="result-screen"><div class="result-ring" style="--score:${pct}"><strong>${pct}%</strong></div><span class="eyebrow">TANTANGAN SELESAI</span><h1>${pct>=80?'Hebat, alasanmu kuat!':pct>=60?'Bagus, terus perkuat!':'Belajar dari umpan balik'}</h1><p>Kamu memperoleh <strong>${qz.score}</strong> dari ${max} poin. Yang terpenting adalah memahami alasan di balik setiap keputusan.</p><div class="result-actions"><button class="primary-action" id="backMaterial">Kembali ke Materi</button><button class="secondary-action" id="retryQuiz">Ulangi Tantangan</button></div></section>`;
+    app.innerHTML=`<section class="result-screen"><div class="result-ring" style="--score:${pct}"><strong>${pct}%</strong></div><span class="eyebrow">TANTANGAN SELESAI</span><h1>${pct>=80?'Hebat, alasanmu kuat!':pct>=60?'Bagus, terus perkuat!':'Belajar dari umpan balik'}</h1><p>${state.presentationMode?'Skor simulasi kelas':'Kamu memperoleh'} <strong>${qz.score}</strong> dari ${max} poin. ${state.presentationMode?'Nilai ini tidak disimpan dan dapat digunakan sebagai bahan diskusi.':'Yang terpenting adalah memahami alasan di balik setiap keputusan.'}</p><div class="result-actions"><button class="primary-action" id="backMaterial">Kembali ke Materi</button><button class="secondary-action" id="retryQuiz">Ulangi Tantangan</button></div></section>`;
     $('#backMaterial').onclick=renderSession; $('#retryQuiz').onclick=()=>startQuiz(qz.category);
   }
 
@@ -335,6 +348,9 @@
     const sessionId=state.currentSession.session_id;
     let prompts=(state.data.reflectionPrompts||{})[sessionId];
     if (!prompts || prompts.length<2) prompts = sessionId==='DIGI-WED' ? window.MPLS_FALLBACK_DATA.reflectionPrompts['DIGI-WED'] : window.MPLS_FALLBACK_DATA.reflectionPrompts['CURR-THU'];
+    if (state.presentationMode) {
+      return showModal(`<span class="eyebrow">REFLEKSI KELAS</span><h2>Pilih pertanyaan untuk ditanggapi peserta</h2><div class="reflection-prompt-list">${prompts.slice(0,4).map((p,i)=>`<article><span>${i+1}</span><p>${esc(p)}</p></article>`).join('')}</div><div class="note"><strong>Mode presentasi:</strong> jawaban tidak disimpan dari layar guru. Peserta dapat mengirim refleksi melalui perangkatnya, sedangkan siswa tanpa HP dapat dicatat dari Panel Guru.</div>`);
+    }
     showModal(`<span class="eyebrow">REFLEKSI PRIBADI</span><h2>Apa yang akan kamu bawa pulang?</h2><form id="reflectionForm" class="form-stack">${prompts.slice(0,4).map((p,i)=>`<label>${esc(p)}<textarea name="a${i}" rows="2" required></textarea></label>`).join('')}<button class="primary-action" type="submit">Simpan Refleksi</button></form>`,root=>{
       $('#reflectionForm',root).onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget),answers=prompts.slice(0,4).map((_,i)=>String(f.get('a'+i)||'').trim());const btn=$('button[type=submit]',root);btn.disabled=true;btn.textContent='Menyimpan...';try{if(window.MPLS_API.isConfigured())await window.MPLS_API.submitReflection({runId:state.student.run&&state.student.run.runId,studentId:state.student.studentId,sessionId,answers});$('#modalContent').innerHTML=`<div class="celebrate"><div class="big-emoji">🌱</div><h2>Refleksimu tersimpan</h2><p>Satu langkah kecil yang dilakukan berulang dapat menjadi perubahan besar.</p></div>`;}catch(err){toast(err.message,'error');btn.disabled=false;btn.textContent='Simpan Refleksi';}};
     });
