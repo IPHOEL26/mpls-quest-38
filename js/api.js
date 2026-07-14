@@ -66,6 +66,7 @@
     previewFinalReport: p => post('previewFinalReport', p),
     finalizeRun: p => post('finalizeRun', p),
     recordPresentationRating: p => post('recordPresentationRating', p),
+    runParticipants: p => post('runParticipants', p),
     saveGroupSetup: p => post('saveGroupSetup', p),
     rateGroupMember: p => post('rateGroupMember', p),
     rateGroupPoster: p => post('rateGroupPoster', p),

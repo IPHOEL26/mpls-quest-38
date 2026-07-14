@@ -544,6 +544,31 @@
     return a;
   }
 
+  function groupEntryLabel(mode) {
+    return ({self:'Registrasi HP',registration:'Registrasi HP',teacher_candidate:'Kandidat tanpa HP',assisted:'Dibantu guru'})[String(mode||'')] || 'Peserta sesi';
+  }
+
+  async function loadRunParticipantsForGroups(showToast) {
+    const context=await requirePresentationContext();
+    const result=await window.MPLS_API.runParticipants({teacherKey:context.teacherKey||state.teacherKey,runId:context.runId||preferredRunId});
+    const participants=(result.participants||[]).map(p=>({
+      studentId:String(p.studentId||''),studentName:String(p.fullName||''),className:String(p.className||''),entryMode:String(p.entryMode||''),isPlaceholder:false
+    })).filter(p=>p.studentName);
+    if(showToast)toast(`${participants.length} peserta sesi berhasil dimuat.`,'success');
+    return participants;
+  }
+
+  function participantKey(p) {
+    return p && p.studentId ? 'id:'+String(p.studentId) : 'name:'+String((p&&p.studentName)||'').trim().toLowerCase()+'|'+String((p&&p.className)||'').trim().toLowerCase();
+  }
+
+  function balancedGroup(data) {
+    const counts=data.groups.map(g=>data.results.filter(r=>String(r.groupId)===String(g.id)).length);
+    const min=Math.min(...counts);
+    const choices=data.groups.map((g,i)=>({g,i})).filter(x=>counts[x.i]===min);
+    return choices[Math.floor(Math.random()*choices.length)].g;
+  }
+
   function openGroupBuilder(item) {
     const palette = [
       {name:'Biru',hex:'#2563eb'},{name:'Hijau',hex:'#16a34a'},{name:'Kuning',hex:'#eab308'},
@@ -551,48 +576,91 @@
       {name:'Merah Muda',hex:'#db2777'},{name:'Toska',hex:'#0891b2'}
     ];
     const suggested = item.suggested_groups || ['Screen Time','Screen Zone','Screen Break'];
-    showModal(`<span class="eyebrow">PEMBAGI KELOMPOK BERWARNA</span><h2>Bagi anggota secara merata</h2><p>Masukkan jumlah murid, atur nama kelompok dan warna bola, kemudian panggil murid satu per satu untuk mengambil undian.</p>
-      <form id="groupSetup" class="form-stack">
-        <div class="form-row"><label>Jumlah murid<input type="number" name="studentCount" min="1" max="100" value="30" required></label><label>Jumlah kelompok<select name="groupCount">${[2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n} kelompok</option>`).join('')}</select></label></div>
-        <div id="groupFields" class="group-field-list"></div>
-        <button class="primary-action" type="submit">Siapkan Undian Bola</button>
-      </form>`, root=>{
+    showModal(`<div class="group-loading"><div class="waiting-pulse">👥</div><h2>Memuat peserta sesi…</h2><p>Nama dari registrasi HP dan kandidat manual sedang diambil dari Panel Guru.</p></div>`);
+    (async()=>{
+      let participants=[];
+      try{participants=await loadRunParticipantsForGroups(false);}catch(err){toast(err.message,'warning');}
+      const renderSetup=root=>{
+        const sourceCounts=participants.reduce((a,p)=>{a[p.entryMode]=(a[p.entryMode]||0)+1;return a;},{});
+        root.innerHTML=`<span class="eyebrow">PEMBAGI KELOMPOK BERWARNA</span><h2>Peserta sesi langsung masuk antrean</h2>
+          <p>Nama siswa yang mendaftar melalui QR/link dan siswa yang ditambahkan manual sudah dimuat. Panggil nama yang tampil, lalu klik bola otomatis atau pilih warna kelompok secara manual.</p>
+          <div class="participant-source-summary">
+            <article><small>TOTAL PESERTA</small><strong id="groupParticipantCount">${participants.length}</strong></article>
+            <article><small>REGISTRASI HP</small><strong>${Number(sourceCounts.self||0)+Number(sourceCounts.registration||0)}</strong></article>
+            <article><small>KANDIDAT/MANUAL</small><strong>${Number(sourceCounts.teacher_candidate||0)+Number(sourceCounts.assisted||0)}</strong></article>
+          </div>
+          <div class="participant-preview"><div><strong>Daftar peserta sesi</strong><small>${participants.length?'Nama akan dipanggil satu per satu.':'Belum ada peserta. Tambahkan peserta di Panel Guru atau gunakan peserta tambahan.'}</small></div><button class="secondary-action compact" id="refreshGroupParticipants">↻ Muat Ulang Peserta</button></div>
+          <div class="participant-chip-list" id="participantChipList">${participants.slice(0,18).map(p=>`<span>${esc(p.studentName)}<small>${esc(p.className)} · ${esc(groupEntryLabel(p.entryMode))}</small></span>`).join('')}${participants.length>18?`<span class="more-chip">+${participants.length-18} lainnya</span>`:''}</div>
+          <form id="groupSetup" class="form-stack">
+            <div class="form-row"><label>Jumlah kelompok<select name="groupCount">${[2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n} kelompok</option>`).join('')}</select></label><label>Peserta tambahan belum terdaftar<input type="number" name="extraStudentCount" min="0" max="30" value="0"><small>Cadangan bila ada murid yang belum masuk daftar.</small></label></div>
+            <div id="groupFields" class="group-field-list"></div>
+            <button class="primary-action" type="submit">Siapkan Undian untuk ${participants.length} Peserta</button>
+          </form>`;
         const form=$('#groupSetup',root), fields=$('#groupFields',root), countSelect=form.elements.groupCount;
         const drawFields=()=>{
           const count=Number(countSelect.value);
-          fields.innerHTML=Array.from({length:count},(_,i)=>`<div class="group-field"><span class="group-number">${i+1}</span><label>Nama kelompok<input name="groupName${i}" value="${esc(suggested[i]||('Kelompok '+(i+1)))}" required></label><label>Nama ketua<input name="groupLeader${i}" placeholder="Diisi setelah anggota terbentuk"></label><label>Warna bola<select name="groupColor${i}">${palette.map((c,j)=>`<option value="${c.hex}|${c.name}" ${j===i?'selected':''}>${c.name}</option>`).join('')}</select></label></div>`).join('');
+          fields.innerHTML=Array.from({length:count},(_,i)=>`<div class="group-field"><span class="group-number">${i+1}</span><label>Nama kelompok<input name="groupName${i}" value="${esc(suggested[i]||('Kelompok '+(i+1)))}" required></label><label>Warna bola<select name="groupColor${i}">${palette.map((c,j)=>`<option value="${c.hex}|${c.name}" ${j===i?'selected':''}>${c.name}</option>`).join('')}</select></label></div>`).join('');
         };
         countSelect.onchange=drawFields;drawFields();
+        $('#refreshGroupParticipants',root).onclick=async()=>{
+          try{
+            const fresh=await loadRunParticipantsForGroups(true);participants=fresh;renderSetup(root);
+          }catch(err){toast(err.message,'error');}
+        };
         form.onsubmit=e=>{
-          e.preventDefault();const fd=new FormData(form), total=Number(fd.get('studentCount')), count=Number(fd.get('groupCount'));
-          const groups=Array.from({length:count},(_,i)=>{const [color,colorName]=String(fd.get('groupColor'+i)).split('|');return {id:'GRP-'+(i+1),name:String(fd.get('groupName'+i)||('Kelompok '+(i+1))),leaderName:String(fd.get('groupLeader'+i)||'').trim(),color,colorName};});
-          const assignments=shuffleArray(Array.from({length:total},(_,i)=>i%count));
-          state.presentationGroups={groups,assignments,cursor:0,results:[]};
+          e.preventDefault();const fd=new FormData(form), count=Number(fd.get('groupCount')), extra=Math.max(0,Number(fd.get('extraStudentCount')||0));
+          const groups=Array.from({length:count},(_,i)=>{const [color,colorName]=String(fd.get('groupColor'+i)).split('|');return {id:'GRP-'+(i+1),name:String(fd.get('groupName'+i)||('Kelompok '+(i+1))),leaderName:'',leaderStudentId:'',color,colorName};});
+          const queue=participants.slice().sort((a,b)=>a.studentName.localeCompare(b.studentName,'id'));
+          for(let i=0;i<extra;i++)queue.push({studentId:'',studentName:`Peserta Tambahan ${i+1}`,className:'',entryMode:'assisted',isPlaceholder:true});
+          if(!queue.length)return toast('Belum ada peserta. Tambahkan peserta di Panel Guru atau isi peserta tambahan.','warning');
+          state.presentationGroups={groups,participants:queue,cursor:0,results:[],absent:[],skipped:0};
           renderGroupDraw(root);
         };
-      });
+      };
+      renderSetup($('#modalContent'));
+    })();
   }
 
   function renderGroupDraw(root) {
     const data=state.presentationGroups;
     if(!data) return;
-    const last=data.results[data.results.length-1], remaining=data.assignments.length-data.cursor;
+    const current=data.participants[data.cursor]||null;
+    const last=data.results[data.results.length-1], remaining=Math.max(0,data.participants.length-data.cursor);
     const counts=data.groups.map(g=>data.results.filter(r=>String(r.groupId)===String(g.id)).length);
-    root.innerHTML=`<span class="eyebrow">UNDIAN KELOMPOK · ${data.cursor}/${data.assignments.length} MURID</span><h2>Ambil Bola Kelompok</h2>
-      <div class="draw-stage">${last?`<div class="color-ball" style="--ball:${esc(last.color)}"><span>${esc(last.number)}</span></div><h3>${esc(last.studentName)}</h3><p>Masuk ke <strong style="color:${esc(last.color)}">${esc(last.groupName)}</strong> · Bola ${esc(last.colorName)}</p>`:`<div class="color-ball waiting"><span>?</span></div><h3>Siap untuk murid pertama</h3><p>Masukkan nama bila diperlukan, kemudian klik Ambil Bola.</p>`}</div>
-      <label class="inline-name">Nama murid (opsional)<input id="drawStudentName" placeholder="Kosongkan untuk Murid ${data.cursor+1}" ${remaining===0?'disabled':''}></label>
-      <div class="draw-actions"><button class="primary-action" id="drawNext" ${remaining===0?'disabled':''}>🎱 Ambil Bola ${remaining?`(${remaining} tersisa)`:''}</button><button class="secondary-action" id="drawReset">Atur Ulang</button></div>
-      <div class="group-summary">${data.groups.map((g,i)=>`<article><i style="background:${esc(g.color)}"></i><strong>${esc(g.name)}</strong><small>${counts[i]} anggota</small>${remaining===0?`<label class="leader-final">Ketua kelompok<input data-leader-group="${esc(g.id)}" value="${esc(g.leaderName||'')}" placeholder="Ketik nama ketua"></label>`:(g.leaderName?`<small>Ketua: ${esc(g.leaderName)}</small>`:'')}</article>`).join('')}</div>
-      ${remaining===0?'<div class="key-message"><strong>Pembagian selesai.</strong> Semua murid telah terbagi secara merata. <button class="primary-action compact-save" id="saveGroupsToTeacher">Simpan Kelompok ke Panel Guru</button></div>':''}`;
-    $('#drawNext',root).onclick=()=>{
-      if(data.cursor>=data.assignments.length)return;
-      const group=data.groups[data.assignments[data.cursor]], name=String($('#drawStudentName',root).value||'').trim()||`Murid ${data.cursor+1}`;
-      data.results.push({number:data.cursor+1,studentName:name,groupId:group.id,groupName:group.name,color:group.color,colorName:group.colorName});data.cursor++;renderGroupDraw(root);
+    const assignToGroup=group=>{
+      if(!current||data.cursor>=data.participants.length)return;
+      const nameInput=$('#drawStudentName',root);
+      const name=String((nameInput&&nameInput.value)||current.studentName||'').trim();
+      if(!name)return toast('Nama peserta belum diisi.','warning');
+      data.results.push({number:data.results.length+1,studentId:current.studentId||'',studentName:name,className:current.className||'',entryMode:current.entryMode||'assisted',groupId:group.id,groupName:group.name,color:group.color,colorName:group.colorName});
+      data.cursor++;renderGroupDraw(root);
     };
+    root.innerHTML=`<span class="eyebrow">UNDIAN KELOMPOK · ${data.results.length} TERBAGI · ${remaining} MENUNGGU</span><h2>Ambil Bola Kelompok</h2>
+      <div class="draw-stage">${last?`<div class="color-ball" style="--ball:${esc(last.color)}"><span>${esc(last.number)}</span></div><h3>${esc(last.studentName)}</h3><p>Masuk ke <strong style="color:${esc(last.color)}">${esc(last.groupName)}</strong> · Bola ${esc(last.colorName)}</p>`:`<div class="color-ball waiting"><span>?</span></div><h3>Siap untuk peserta pertama</h3><p>Nama peserta sesi sudah dimuat otomatis dari Panel Guru.</p>`}</div>
+      ${current?`<div class="current-participant-card"><small>PESERTA BERIKUTNYA</small><strong>${esc(current.studentName)}</strong><span>${esc(current.className||'Kelas belum diisi')} · ${esc(groupEntryLabel(current.entryMode))}</span></div>
+      <label class="inline-name ${current.isPlaceholder?'':'locked-name'}">Nama peserta${current.isPlaceholder?' tambahan':''}<input id="drawStudentName" value="${esc(current.studentName)}" ${current.isPlaceholder?'':'readonly'}></label>
+      <div class="draw-actions"><button class="primary-action" id="drawNext">🎱 Ambil Bola Otomatis (${remaining} tersisa)</button><button class="secondary-action" id="drawSkip">Lewati Sementara</button><button class="secondary-action danger-lite" id="drawAbsent">Tidak Hadir</button><button class="secondary-action" id="drawReset">Atur Ulang</button></div>
+      <div class="manual-ball-panel"><small>ATAU PILIH WARNA SECARA MANUAL</small><div class="manual-ball-buttons">${data.groups.map(g=>`<button data-manual-group="${esc(g.id)}" style="--manual-ball:${esc(g.color)}"><i></i>${esc(g.name)}</button>`).join('')}</div></div>`:`<div class="key-message"><strong>Semua peserta telah dipanggil.</strong> ${data.results.length} peserta terbagi dan ${(data.absent||[]).length} ditandai tidak hadir.</div>`}
+      <div class="group-summary">${data.groups.map((g,i)=>{const members=data.results.filter(r=>String(r.groupId)===String(g.id));return `<article><i style="background:${esc(g.color)}"></i><strong>${esc(g.name)}</strong><small>${counts[i]} anggota</small>${remaining===0?`<label class="leader-final">Ketua kelompok<select data-leader-group="${esc(g.id)}"><option value="">Pilih ketua</option>${members.map(m=>`<option value="${esc(m.studentId||m.studentName)}">${esc(m.studentName)}</option>`).join('')}</select></label>`:''}</article>`;}).join('')}</div>
+      ${remaining===0?`<div class="group-final-actions"><label>Tambah peserta dadakan<input id="lateParticipantName" placeholder="Nama siswa yang baru datang"></label><button class="secondary-action" id="addLateParticipant">＋ Tambah ke Antrean</button><button class="primary-action compact-save" id="saveGroupsToTeacher">Simpan Kelompok ke Panel Guru</button></div>`:''}
+      ${(data.absent||[]).length?`<div class="absent-list"><strong>Tidak hadir/dilewati dari pembagian:</strong> ${(data.absent||[]).map(p=>esc(p.studentName)).join(', ')}</div>`:''}`;
+    if(current){
+      $('#drawNext',root).onclick=()=>assignToGroup(balancedGroup(data));
+      $$('[data-manual-group]',root).forEach(btn=>btn.onclick=()=>{const g=data.groups.find(x=>String(x.id)===String(btn.dataset.manualGroup));if(g)assignToGroup(g);});
+      $('#drawSkip',root).onclick=()=>{if(remaining<=1)return toast('Hanya satu peserta tersisa. Silakan bagi atau tandai tidak hadir.','warning');const p=data.participants.splice(data.cursor,1)[0];data.participants.push(p);data.skipped++;renderGroupDraw(root);};
+      $('#drawAbsent',root).onclick=()=>{data.absent.push(current);data.cursor++;renderGroupDraw(root);};
+      $('#drawReset',root).onclick=()=>{state.presentationGroups=null;closeModal();openGroupBuilder({suggested_groups:['Screen Time','Screen Zone','Screen Break']});};
+    }
+    if($('#addLateParticipant',root))$('#addLateParticipant',root).onclick=()=>{const name=String($('#lateParticipantName',root).value||'').trim();if(!name)return toast('Masukkan nama peserta.','warning');data.participants.push({studentId:'',studentName:name,className:'',entryMode:'assisted',isPlaceholder:true});renderGroupDraw(root);};
     if($('#saveGroupsToTeacher',root))$('#saveGroupsToTeacher',root).onclick=async()=>{
-      try{const context=await requirePresentationContext();$$('[data-leader-group]',root).forEach(input=>{const g=data.groups.find(x=>String(x.id)===String(input.dataset.leaderGroup));if(g)g.leaderName=String(input.value||'').trim();});const payloadGroups=data.groups.map(g=>({groupId:g.id,groupName:g.name,color:g.color,colorName:g.colorName,leaderName:g.leaderName,members:data.results.filter(r=>String(r.groupId)===String(g.id)).map(r=>r.studentName)}));await window.MPLS_API.saveGroupSetup({teacherKey:context.teacherKey,runId:context.runId||preferredRunId,groups:payloadGroups});toast('Kelompok dan nama anggota tersimpan di Panel Guru.','success');$('#saveGroupsToTeacher',root).disabled=true;$('#saveGroupsToTeacher',root).textContent='✓ Tersimpan';}catch(err){toast(err.message,'error');}
+      try{
+        const context=await requirePresentationContext();
+        $$('[data-leader-group]',root).forEach(select=>{const g=data.groups.find(x=>String(x.id)===String(select.dataset.leaderGroup));if(!g)return;const member=data.results.find(r=>String(r.groupId)===String(g.id)&&String(r.studentId||r.studentName)===String(select.value));g.leaderStudentId=member&&member.studentId||'';g.leaderName=member&&member.studentName||'';});
+        const payloadGroups=data.groups.map(g=>({groupId:g.id,groupName:g.name,color:g.color,colorName:g.colorName,leaderStudentId:g.leaderStudentId,leaderName:g.leaderName,members:data.results.filter(r=>String(r.groupId)===String(g.id)).map(r=>({studentId:r.studentId||'',fullName:r.studentName,className:r.className||''}))}));
+        await window.MPLS_API.saveGroupSetup({teacherKey:context.teacherKey,runId:context.runId||preferredRunId,groups:payloadGroups});
+        toast('Kelompok dan nama anggota tersimpan di Panel Guru.','success');$('#saveGroupsToTeacher',root).disabled=true;$('#saveGroupsToTeacher',root).textContent='✓ Tersimpan';
+      }catch(err){toast(err.message,'error');}
     };
-    $('#drawReset',root).onclick=()=>{state.presentationGroups=null;closeModal();openGroupBuilder({suggested_groups:['Screen Time','Screen Zone','Screen Break']});};
   }
 
   function activeGroupList() {
