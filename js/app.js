@@ -7,11 +7,12 @@
   const presentationMode = urlParams.get('mode') === 'presentation';
   const preferredPresentationSession = urlParams.get('session') || '';
   const preferredRunId = urlParams.get('run') || '';
+  const preferredJoinCode = (urlParams.get('join') || urlParams.get('code') || '').trim().toUpperCase();
 
   const state = {
     data:null, currentSession:null, stepIndex:0,
     student:loadJSON('mpls_student'), progress:loadJSON('mpls_progress') || {},
-    quiz:null, timer:{seconds:0, initial:0, running:false, handle:null}, teacherKey:'', presentationMode, presentationGroups:null, teacherContext:null
+    quiz:null, timer:{seconds:0, initial:0, running:false, handle:null}, teacherKey:'', presentationMode, presentationGroups:null, teacherContext:null, joinPromptShown:false
   };
 
   function esc(value) {
@@ -55,7 +56,7 @@
   }
 
   function levelMeta(level) {
-    return ({cukup:{api:'mulai',label:'Cukup',numeric:6.67},baik:{api:'baik',label:'Baik',numeric:13.33},baik_sekali:{api:'menonjol',label:'Baik Sekali',numeric:20}})[level];
+    return ({cukup:{api:'mulai',label:'Cukup',numeric:3},baik:{api:'baik',label:'Baik',numeric:5},baik_sekali:{api:'menonjol',label:'Baik Sekali',numeric:7}})[level];
   }
 
   function requirePresentationContext() {
@@ -97,6 +98,13 @@
     if (state.data.apiError) toast('API belum tersambung. Aplikasi memakai data demo.', 'warning');
     renderHome();
     bindGlobal();
+    if (!state.presentationMode && preferredJoinCode && !state.student && !state.joinPromptShown) {
+      state.joinPromptShown = true;
+      setTimeout(() => openRegistration(() => {
+        const sid = state.student && state.student.run && state.student.run.sessionId;
+        if (sid) beginSession(sid); else renderHome();
+      }), 120);
+    }
     if (state.presentationMode && preferredPresentationSession) setTimeout(() => beginSession(preferredPresentationSession), 0);
     if ('serviceWorker' in navigator && window.MPLS_APP_CONFIG.ENABLE_SERVICE_WORKER && location.protocol === 'https:') navigator.serviceWorker.register('./sw.js').catch(console.warn);
   }
@@ -125,7 +133,7 @@
     const identityBlock = state.presentationMode ? `
           <div class="student-chip presentation-chip">
             <span>📽️</span>
-            <div><small>MODE PRESENTASI GURU</small><strong>Materi dibuka tanpa mendaftarkan guru dan tanpa menyimpan nilai.</strong></div>
+            <div><small>MODE PRESENTASI GURU</small><strong>Materi dibuka tanpa mendaftarkan guru; nilai siswa hanya tersimpan saat guru memilih tingkat jawaban atau observasi.</strong></div>
             <button id="studentEdit">Panel Guru</button>
           </div>` : `
           <div class="student-chip ${state.student ? '' : 'empty'}">
@@ -138,7 +146,7 @@
         <div class="hero-copy">
           <span class="eyebrow">${state.presentationMode?'MODE PRESENTASI PEMATERI':'MASA PENGENALAN LINGKUNGAN SEKOLAH'}</span>
           <h1>${esc(state.presentationMode?'Pilih materi dan tampilkan ke kelas':(cfg.tagline || 'Kenali Sekolahmu, Temukan Potensimu!'))}</h1>
-          <p>${esc(state.presentationMode?'Gunakan layar penuh, navigasi pos, timer, video, diskusi, dan kuis kelas. Aktivitas pada mode ini tidak masuk ke nilai peserta.':(cfg.welcome || 'Belajar dan bertumbuh bersama.'))}</p>
+          <p>${esc(state.presentationMode?'Gunakan layar penuh, navigasi materi, timer, video, dan diskusi. Guru tidak masuk daftar peserta; penilaian siswa yang dipilih tetap dapat disimpan.':(cfg.welcome || 'Belajar dan bertumbuh bersama.'))}</p>
           ${identityBlock}
         </div>
         <div class="hero-orbit" aria-hidden="true"><span>📚</span><span>🛡️</span><span>🎮</span><span>🌟</span><div class="orbit-core">${state.presentationMode?'▶':'38'}</div></div>
@@ -151,7 +159,7 @@
         <article><span>📽️</span><strong>${state.presentationMode?'Tanpa Registrasi':'Materi Ringkas'}</strong><small>${state.presentationMode?'Guru tidak masuk daftar peserta':'Satu layar, satu tujuan'}</small></article>
         <article><span>🎮</span><strong>Game Edukatif</strong><small>${state.presentationMode?'Untuk diskusi kelas':'Umpan balik langsung'}</small></article>
         <article><span>⏱️</span><strong>Timer Kegiatan</strong><small>Cocok untuk proyektor</small></article>
-        <article><span>${state.presentationMode?'🔒':'📝'}</span><strong>${state.presentationMode?'Tidak Menyimpan Nilai':'Nilai 0–100'}</strong><small>${state.presentationMode?'Aman untuk demonstrasi guru':'Tersimpan per ruangan'}</small></article>
+        <article><span>${state.presentationMode?'🔒':'📝'}</span><strong>${state.presentationMode?'Guru Tidak Terdaftar':'Nilai 0–100'}</strong><small>${state.presentationMode?'Penilaian siswa tetap dapat disimpan':'Tersimpan per ruangan'}</small></article>
       </section>`;
     $('#studentEdit').onclick = state.presentationMode ? (()=>window.location.href='./teacher.html') : openRegistration;
     $('#leaderboardButton').onclick = state.presentationMode ? (()=>window.location.href='./teacher.html') : openLeaderboard;
@@ -195,7 +203,7 @@
       return `${bodyHTML(item.body)}<div class="visual-story-grid">${(item.visuals||[]).map(v=>`<article><span>${esc(v.icon)}</span><h3>${esc(v.title)}</h3><p>${esc(v.text)}</p></article>`).join('')}</div>${cue}`;
     }
     if (item.template === 'trigger_questions') {
-      return `${bodyHTML(item.body)}<div class="prompt-preview">${(item.prompts||[]).slice(0,3).map((q,i)=>`<article><span>${i+1}</span><p>${esc(q)}</p></article>`).join('')}</div>${cue}`;
+      return `${bodyHTML(item.body)}<div class="prompt-preview">${(item.prompts||[]).slice(0,3).map((q,i)=>`<article><span>${i+1}</span><p>${esc(typeof q==='string'?q:(q.question||q.prompt||''))}</p></article>`).join('')}</div>${cue}`;
     }
     if (item.template === 'film') {
       return `<div class="film-feature"><div class="film-poster"><span>🎬</span><small>FILM PENDEK</small><strong>KEMENANGAN<br>SEJATI</strong></div><div>${bodyHTML(item.body)}<div class="watch-focus"><span>1</span> Cara tokoh mulai terlibat <span>2</span> Dampak yang muncul <span>3</span> Keputusan aman</div></div></div>${cue}`;
@@ -232,14 +240,14 @@
     app.innerHTML = `
       <section class="session-header ${accentClass(state.currentSession.accent)}">
         <button class="back-btn" id="backHome">← ${state.presentationMode?'Pilih Materi':'Beranda'}</button>
-        <div>${state.presentationMode?'<span class="presentation-tag">📽️ MODE PRESENTASI · TIDAK MENYIMPAN NILAI</span>':''}<span class="eyebrow">${esc(state.currentSession.day_label)} · ${esc(state.currentSession.duration_minutes)} MENIT</span><h1>${esc(state.currentSession.title)}</h1><p>${esc(state.currentSession.subtitle)}</p></div>
+        <div>${state.presentationMode?'<span class="presentation-tag">📽️ MODE PRESENTASI · GURU TIDAK MASUK DAFTAR PESERTA</span>':''}<span class="eyebrow">${esc(state.currentSession.day_label)} · ${esc(state.currentSession.duration_minutes)} MENIT</span><h1>${esc(state.currentSession.title)}</h1><p>${esc(state.currentSession.subtitle)}</p></div>
         <div class="session-score"><small>PROGRES</small><strong>${pct}%</strong></div>
       </section>
-      <div class="journey-layout">
-        <aside class="step-rail" aria-label="Daftar pos">${items.map((x,i) => `<button class="rail-step ${i===state.stepIndex?'active':''} ${i<state.stepIndex?'done':''}" data-step="${i}"><span>${i<state.stepIndex?'✓':i+1}</span><small>${esc(x.title)}</small></button>`).join('')}</aside>
+      <div class="journey-layout ${state.presentationMode?'presentation-wide':''}">
+        ${state.presentationMode?'':`<aside class="step-rail" aria-label="Daftar pos">${items.map((x,i) => `<button class="rail-step ${i===state.stepIndex?'active':''} ${i<state.stepIndex?'done':''}" data-step="${i}"><span>${i<state.stepIndex?'✓':i+1}</span><small>${esc(x.title)}</small></button>`).join('')}</aside>`}
         <section class="content-stage">
           <article class="content-card ${accentClass(item.accent)}">
-            <div class="content-kicker"><span class="content-icon">${esc(item.icon)}</span><span>${esc(item.activity || ('POS '+(state.stepIndex+1)+' DARI '+items.length))}</span><button class="duration-btn" id="durationButton">⏱ ${esc(item.duration_minutes)} menit</button></div>
+            <div class="content-kicker"><span class="content-icon">${esc(item.icon)}</span><span>${esc(item.activity || ('POS '+(state.stepIndex+1)+' DARI '+items.length))}</span>${state.presentationMode?'<button class="outline-btn" id="openOutline">☰ Daftar Materi</button>':''}<button class="duration-btn" id="durationButton">⏱ ${esc(item.duration_minutes)} menit</button></div>
             ${item.activity_title ? `<div class="activity-banner"><strong>${esc(item.activity_title)}</strong><small>Pos ${state.stepIndex+1} dari ${items.length}</small></div>` : ''}
             <h2>${esc(item.title)}</h2>
             <div class="content-body">${renderItemContent(item)}</div>
@@ -253,7 +261,14 @@
     $('#nextStep').onclick = nextStep;
     $('#durationButton').onclick = () => openTimer(Number(item.duration_minutes)*60);
     $$('.rail-step').forEach(btn => btn.onclick = () => { state.stepIndex = Number(btn.dataset.step); renderSession(); });
+    if ($('#openOutline')) $('#openOutline').onclick = () => openPresentationOutline(items);
     const action = $('#contentAction'); if (action) action.onclick = () => runAction(item);
+  }
+
+  function openPresentationOutline(items) {
+    showModal(`<span class="eyebrow">DAFTAR MATERI</span><h2>Pilih bagian yang akan ditampilkan</h2><div class="outline-list">${items.map((x,i)=>`<button class="outline-item ${i===state.stepIndex?'active':''}" data-step="${i}"><span>${i+1}</span><div><strong>${esc(x.title)}</strong><small>${esc(x.activity||'')}</small></div></button>`).join('')}</div>`, root => {
+      $$('.outline-item',root).forEach(btn => btn.onclick = () => { state.stepIndex = Number(btn.dataset.step); closeModal(); renderSession(); });
+    });
   }
 
   function actionButton(item) {
@@ -326,14 +341,14 @@
       root.innerHTML=`<span class="eyebrow">${esc(sourceLabel.toUpperCase())} ${index+1} DARI ${prompts.length}</span><div class="prompt-display">${esc(prompt.question)}</div>
         <div class="teacher-instruction"><span>⏳</span><p>Masukkan nama murid yang akan menjawab. Beri waktu berpikir, dengarkan jawabannya, lalu tampilkan jawaban acuan.</p></div>
         <label class="answering-student">Nama murid yang menjawab<input id="answerStudentName" value="${esc(studentName)}" placeholder="Ketik nama sebelum murid menjawab"></label>
-        ${revealed?`<section class="model-answer"><span>JAWABAN ACUAN / PENGUATAN</span><p>${esc(prompt.answer)}</p></section><section class="rating-panel"><strong>Nilai kualitas jawaban</strong><small>Nilai akan masuk ke komponen Bernalar /20 pada Google Sheet.</small><div class="rating-range"><button data-level="cukup" class="rate-answer enough">Cukup</button><button data-level="baik" class="rate-answer good">Baik</button><button data-level="baik_sekali" class="rate-answer excellent">Baik Sekali</button></div></section>`:''}
+        ${revealed?`<section class="model-answer"><span>JAWABAN ACUAN / PENGUATAN</span><p>${esc(prompt.answer)}</p></section><section class="rating-panel"><strong>Nilai kualitas jawaban</strong><small>Tiga jawaban terbaik dihitung: Cukup 3 poin, Baik 5 poin, Baik Sekali 7 poin; maksimum 20.</small><div class="rating-range"><button data-level="cukup" class="rate-answer enough">Cukup</button><button data-level="baik" class="rate-answer good">Baik</button><button data-level="baik_sekali" class="rate-answer excellent">Baik Sekali</button></div></section>`:''}
         <div class="modal-nav"><button class="secondary-action" id="promptPrev" ${index===0?'disabled':''}>← Sebelumnya</button><button class="secondary-action" id="thinkTimer">Timer 30 Detik</button>${revealed?'<button class="secondary-action" id="hideAnswer">Sembunyikan Jawaban</button>':'<button class="primary-action" id="revealAnswer">Tampilkan Jawaban Acuan</button>'}<button class="primary-action" id="promptNext">${index===prompts.length-1?'Selesai':'Pertanyaan Berikutnya →'}</button></div>`;
       const nameInput=$('#answerStudentName',root);nameInput.oninput=()=>studentName=nameInput.value;
       $('#promptPrev',root).onclick=()=>{if(index>0){index--;revealed=false;studentName='';render(root);}};
       $('#thinkTimer',root).onclick=()=>openTimer(30);
       if($('#revealAnswer',root))$('#revealAnswer',root).onclick=()=>{studentName=String(nameInput.value||'').trim();if(!studentName)return toast('Masukkan nama murid yang menjawab terlebih dahulu.','warning');revealed=true;render(root);};
       if($('#hideAnswer',root))$('#hideAnswer',root).onclick=()=>{revealed=false;render(root);};
-      $$('.rate-answer',root).forEach(btn=>btn.onclick=async()=>{const chosen=String(nameInput.value||studentName).trim();if(!chosen)return toast('Nama murid belum diisi.','warning');$$('.rate-answer',root).forEach(x=>x.disabled=true);try{const r=await savePromptRating(prompt,chosen,btn.dataset.level,sourceLabel);toast(`Nilai ${r.ratingLabel} tersimpan untuk ${chosen} (${r.numericScore}/20).`,'success');btn.classList.add('saved-rating');}catch(err){toast(err.message,'error');$$('.rate-answer',root).forEach(x=>x.disabled=false);}});
+      $$('.rate-answer',root).forEach(btn=>btn.onclick=async()=>{const chosen=String(nameInput.value||studentName).trim();if(!chosen)return toast('Nama murid belum diisi.','warning');$$('.rate-answer',root).forEach(x=>x.disabled=true);try{const r=await savePromptRating(prompt,chosen,btn.dataset.level,sourceLabel);toast(`Nilai ${r.ratingLabel} tersimpan untuk ${chosen}. Bernalar sementara ${r.reasoningScore}/20 dari ${r.evidenceCount} jawaban dinilai.`,'success');btn.classList.add('saved-rating');}catch(err){toast(err.message,'error');$$('.rate-answer',root).forEach(x=>x.disabled=false);}});
       $('#promptNext',root).onclick=()=>{if(index<prompts.length-1){index++;revealed=false;studentName='';render(root);}else{$('#modalContent').innerHTML=closingHtml||'<div class="celebrate"><div class="big-emoji">🙌</div><h2>Terima kasih atas jawaban kalian</h2><p>Guru memberi penguatan tanpa menghakimi pengalaman siapa pun.</p></div>';}};
     };
     showModal('<div></div>',render);
@@ -455,7 +470,7 @@
     const preferred = (state.data.sessions || []).find(x => x.session_id === preferredSessionId);
     showModal(`<span class="eyebrow">MASUK SESI MPLS</span><h2>Daftar cepat sebelum memulai</h2><p>Masukkan kode yang ditampilkan guru. Nama lengkap hanya berada pada data privat; papan apresiasi memakai alias.</p>
       <form id="registrationForm" class="form-stack">
-        <label>Kode sesi<input name="runCode" maxlength="10" value="${esc(run.runCode||'')}" placeholder="Contoh: LIT38A" required autocapitalize="characters"></label>
+        <label>Kode sesi<input name="runCode" maxlength="10" value="${esc(run.runCode||preferredJoinCode||'')}" placeholder="Contoh: LIT38A" required autocapitalize="characters"></label>
         <label>Nama lengkap<input name="fullName" maxlength="100" value="${esc(s.fullName||'')}" required autocomplete="name"></label>
         <label>Kelas/kelompok<input name="className" maxlength="40" value="${esc(s.className||'')}" placeholder="Contoh: VII-A" required></label>
         ${preferred ? `<div class="note">Materi yang dipilih: <strong>${esc(preferred.title)}</strong></div>` : ''}

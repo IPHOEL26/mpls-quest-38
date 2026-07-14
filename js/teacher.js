@@ -24,6 +24,23 @@
   function statusLabel(status) { return status==='finalized'?'Difinalisasi':'Berlangsung'; }
   function modeLabel(mode) { return mode==='teacher_candidate'?'Kandidat tanpa HP':mode==='assisted'?'Dibantu guru':'Registrasi HP'; }
   function componentLabel(c) { return ({reasoning:'Bernalar',collaboration:'Kerja Sama',creativity:'Kreativitas',responsibility:'Tanggung Jawab'})[c] || c; }
+  function studentJoinUrl(run) {
+    const url = new URL('./index.html', window.location.href);
+    url.searchParams.set('join', run.runCode);
+    return url.toString();
+  }
+
+  function openStudentAccess() {
+    if (!state.run) return toast('Pilih sesi terlebih dahulu.', 'warning');
+    const link = studentJoinUrl(state.run);
+    const qr = 'https://api.qrserver.com/v1/create-qr-code/?size=320x320&margin=12&data=' + encodeURIComponent(link);
+    openModal(`<span class="eyebrow">AKSES SISWA</span><h2>Scan QR atau buka tautan</h2><p>QR dan tautan ini membuka mode siswa dengan kode sesi <strong>${esc(state.run.runCode)}</strong> sudah terisi.</p><div class="student-access-grid"><figure class="qr-card"><img src="${esc(qr)}" alt="QR masuk siswa"><figcaption>Arahkan kamera/Google Lens ke QR.</figcaption></figure><section class="student-link-card"><small>TAUTAN MODE SISWA</small><textarea id="studentJoinLink" readonly>${esc(link)}</textarea><div class="student-access-actions"><button class="teacher-btn secondary" id="copyStudentLink">📋 Salin Link</button><button class="teacher-btn primary" id="openStudentLink">↗️ Buka Mode Siswa</button><button class="teacher-btn light" id="copyStudentCode">🔑 Salin Kode ${esc(state.run.runCode)}</button></div><div class="assist-note"><strong>Cadangan:</strong> bila QR tidak terbaca, kirim link melalui WhatsApp atau minta siswa membuka alamat aplikasi lalu mengetik kode sesi.</div></section></div>`, root => {
+      $('#copyStudentLink',root).onclick=()=>copyText(link,'Link siswa disalin.');
+      $('#copyStudentCode',root).onclick=()=>copyText(state.run.runCode,'Kode sesi disalin.');
+      $('#openStudentLink',root).onclick=()=>window.open(link,'_blank','noopener');
+    });
+  }
+
   function openPresentation(sessionId) {
     const runId = state.run ? state.run.runId : '';
     const query = (sessionId ? '&session=' + encodeURIComponent(sessionId) : '') + (runId ? '&run=' + encodeURIComponent(runId) : '');
@@ -87,12 +104,14 @@
 
   function runBanner() {
     const r=state.run;
-    return `<section class="run-banner"><div><div><span class="status-pill ${esc(r.status)}">${statusLabel(r.status)}</span></div><h2>${esc(r.title)} · ${esc(r.roomName)}</h2><p>${esc(r.presenter)} · ${esc(r.runDate)} · Mulai ${esc(r.startTime||'-')}</p></div><div class="run-code"><div><small>KODE MASUK SISWA</small><strong>${esc(r.runCode)}</strong></div><button class="teacher-btn light" id="openRunPresentation">📽️ Materi</button><button class="teacher-btn secondary" id="copyRunCode">Salin</button></div></section>`;
+    return `<section class="run-banner"><div><div><span class="status-pill ${esc(r.status)}">${statusLabel(r.status)}</span></div><h2>${esc(r.title)} · ${esc(r.roomName)}</h2><p>${esc(r.presenter)} · ${esc(r.runDate)} · Mulai ${esc(r.startTime||'-')}</p></div><div class="run-code"><div><small>KODE MASUK SISWA</small><strong>${esc(r.runCode)}</strong></div><button class="teacher-btn success" id="showStudentAccess">▦ QR / Link Siswa</button><button class="teacher-btn light" id="openRunPresentation">📽️ Materi</button><button class="teacher-btn secondary" id="copyRunCode">Salin Kode</button>${r.status==='open'?'<button class="teacher-btn danger" id="deleteTestRun">🗑️ Hapus Data Uji</button>':''}</div></section>`;
   }
   function emptyRunBanner() { return `<section class="run-banner"><div><h2>Belum ada sesi pelaksanaan</h2><p>Buat sesi untuk menghasilkan kode masuk per ruangan.</p></div><button class="teacher-btn secondary" id="emptyCreate">Buat Sesi Pertama</button></section>`; }
 
   function renderBody() {
     if($('#copyRunCode'))$('#copyRunCode').onclick=()=>copyText(state.run.runCode,'Kode sesi disalin.');
+    if($('#showStudentAccess'))$('#showStudentAccess').onclick=openStudentAccess;
+    if($('#deleteTestRun'))$('#deleteTestRun').onclick=confirmDeleteTestRun;
     if($('#openRunPresentation'))$('#openRunPresentation').onclick=()=>openPresentation(state.run.sessionId);
     if($('#emptyCreate'))$('#emptyCreate').onclick=openCreateRun;
     if(state.tab==='runs')renderRuns();else if(state.tab==='observe')renderObserve();else if(state.tab==='groups')renderGroups();else if(state.tab==='topten')renderTopTen();else renderParticipants();
@@ -115,7 +134,7 @@
 
   function participantTable(rows) {
     if(!rows.length)return '<div class="empty-panel"><div class="emoji">👥</div><h3>Belum ada peserta</h3><p>Siswa dapat masuk menggunakan kode sesi atau guru dapat menambah kandidat tanpa HP.</p></div>';
-    return `<div class="score-table-wrap"><table class="score-table"><thead><tr><th>#</th><th>Peserta</th><th>Masuk melalui</th><th>Kuis /40</th><th>Bernalar /20</th><th>Kerja Sama /15</th><th>Kreativitas /15</th><th>Refleksi /10</th><th>Total</th><th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td><span class="rank-badge ${i<10?'top':''}">${i+1}</span></td><td class="person-cell"><strong>${esc(r.fullName)}</strong><small>${esc(r.className)} · ${esc(r.alias)}</small></td><td><span class="mode-tag">${esc(modeLabel(r.entryMode))}</span></td><td><span class="score-chip">${fmt(r.quizScore)}</span></td><td><span class="score-chip">${fmt(r.reasoningScore)}</span></td><td><span class="score-chip">${fmt(r.collaborationScore)}</span></td><td><span class="score-chip">${fmt(r.creativityScore)}</span></td><td><span class="score-chip">${fmt(r.reflectionScore)}</span></td><td><strong class="total-score">${fmt(r.finalScore)}</strong></td><td>${state.run.status==='open'?`<button class="table-edit" data-student="${esc(r.studentId)}">Edit</button>`:'🔒'}</td></tr>`).join('')}</tbody></table></div>`;
+    return `<div class="score-table-wrap"><table class="score-table"><thead><tr><th>#</th><th>Peserta</th><th>Masuk melalui</th><th>Kuis /40</th><th>Bernalar /20</th><th>Kerja Sama /15</th><th>Kreativitas /15</th><th>Refleksi /10</th><th>Total</th><th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td><span class="rank-badge ${i<10?'top':''}">${i+1}</span></td><td class="person-cell"><strong>${esc(r.fullName)}</strong><small>${esc(r.className)} · ${esc(r.alias)}</small></td><td><span class="mode-tag">${esc(modeLabel(r.entryMode))}</span></td><td><span class="score-chip">${fmt(r.quizScore)}</span></td><td><span class="score-chip">${fmt(r.reasoningScore)}</span><small class="evidence-count">${Number(r.reasoningEvidenceCount||0)} jawaban</small></td><td><span class="score-chip">${fmt(r.collaborationScore)}</span></td><td><span class="score-chip">${fmt(r.creativityScore)}</span></td><td><span class="score-chip">${fmt(r.reflectionScore)}</span></td><td><strong class="total-score">${fmt(r.finalScore)}</strong></td><td>${state.run.status==='open'?`<button class="table-edit" data-student="${esc(r.studentId)}">Edit</button>`:'🔒'}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
   function renderObserve() {
@@ -150,7 +169,7 @@
   function renderTopTen() {
     const body=$('#teacherBody');if(!state.run)return renderRuns();
     const report=state.finalReport;const rows=report?report.topN:state.topN;
-    body.innerHTML=`<section class="teacher-panel"><div class="panel-heading"><div><h2>Top 10 dan laporan WhatsApp</h2><p>${report?'Hasil telah dibekukan. Pesan di bawah berasal dari snapshot final.':'Periksa nama, kelas, dan nilai sebelum finalisasi.'}</p></div><div class="panel-actions">${report?'<span class="status-pill finalized">Snapshot final</span>':'<button class="teacher-btn secondary" id="previewReport">👁️ Pratinjau Pesan</button><button class="teacher-btn warning" id="finalizeReport">🔒 Finalisasi Hasil</button>'}</div></div><div class="topten-layout"><article class="topten-card"><header><span class="eyebrow">PERINGKAT SESI</span><h3>${esc(state.run.title)} · ${esc(state.run.roomName)}</h3></header>${topTenList(rows)}</article><article class="message-card"><span class="eyebrow">PESAN FORMAL</span><textarea id="waMessage" readonly placeholder="Tekan Pratinjau Pesan untuk membuat laporan.">${esc(report?report.messageText:state.messageText)}</textarea><div class="message-actions"><button class="teacher-btn secondary" id="copyMessage" ${report||state.messageText?'':'disabled'}>📋 Salin Pesan</button><button class="teacher-btn success" id="shareMessage" ${report||state.messageText?'':'disabled'}>↗️ Bagikan</button><button class="teacher-btn success" id="openWhatsApp" ${report||state.messageText?'':'disabled'}>💬 Buka WhatsApp</button><button class="teacher-btn secondary" id="refreshTop">↻ Segarkan</button></div>${report?'<div class="final-box"><strong>✓ Hasil telah difinalisasi</strong><br>Data Top 10 tersimpan pada sheet <code>TOP10_RESULTS</code> dan pesan tersimpan pada <code>REPORTS</code>.</div>':'<p class="assist-note">Alur semi-otomatis: buat pratinjau → periksa → finalisasi → bagikan atau buka WhatsApp → pilih kontak → tekan kirim.</p>'}</article></div></section>`;
+    body.innerHTML=`<section class="teacher-panel"><div class="panel-heading"><div><h2>Top 10 dan laporan WhatsApp</h2><p>${report?'Hasil telah dibekukan. Pesan di bawah berasal dari snapshot final.':'Periksa nama, kelas, dan nilai sebelum finalisasi.'}</p></div><div class="panel-actions">${report?'<span class="status-pill finalized">Snapshot final</span>':'<button class="teacher-btn success" id="previewReport">💬 Buat Pesan WhatsApp</button><button class="teacher-btn warning" id="finalizeReport">🔒 Finalisasi Hasil</button>'}</div></div><div class="topten-layout"><article class="topten-card"><header><span class="eyebrow">PERINGKAT SESI</span><h3>${esc(state.run.title)} · ${esc(state.run.roomName)}</h3></header>${topTenList(rows)}</article><article class="message-card"><span class="eyebrow">PESAN FORMAL</span><textarea id="waMessage" readonly placeholder="Tekan Pratinjau Pesan untuk membuat laporan.">${esc(report?report.messageText:state.messageText)}</textarea><div class="message-actions"><button class="teacher-btn secondary" id="copyMessage" ${report||state.messageText?'':'disabled'}>📋 Salin Pesan</button><button class="teacher-btn success" id="shareMessage" ${report||state.messageText?'':'disabled'}>↗️ Bagikan</button><button class="teacher-btn success" id="openWhatsApp" ${report||state.messageText?'':'disabled'}>💬 Buka WhatsApp</button><button class="teacher-btn secondary" id="refreshTop">↻ Segarkan</button></div>${report?'<div class="final-box"><strong>✓ Hasil telah difinalisasi</strong><br>Data Top 10 tersimpan pada sheet <code>TOP10_RESULTS</code> dan pesan tersimpan pada <code>REPORTS</code>.</div>':'<p class="assist-note"><strong>Urutan:</strong> 1) Buat Pesan WhatsApp → 2) Periksa nama dan nilai → 3) Finalisasi Hasil → 4) Buka WhatsApp → 5) Pilih kontak dan kirim.</p>'}</article></div></section>`;
     if($('#previewReport'))$('#previewReport').onclick=previewReport;
     if($('#finalizeReport'))$('#finalizeReport').onclick=confirmFinalize;
     $('#copyMessage').onclick=()=>copyText(currentMessage(),'Pesan laporan disalin.');
@@ -162,6 +181,23 @@
   function topTenList(rows) {
     if(!rows||!rows.length)return '<div class="empty-panel"><div class="emoji">🏆</div><p>Belum ada peserta bernilai.</p></div>';
     return `<ol class="topten-list">${rows.slice(0,10).map((r,i)=>`<li><span class="rank-badge top">${i<3?['🥇','🥈','🥉'][i]:i+1}</span><div><strong>${esc(r.fullName)}</strong><small>${esc(r.className)}</small></div><strong>${fmt(r.finalScore)}</strong></li>`).join('')}</ol>`;
+  }
+
+  function confirmDeleteTestRun() {
+    if (!state.run || state.run.status !== 'open') return toast('Hanya sesi yang belum difinalisasi yang dapat dihapus.', 'warning');
+    openModal(`<span class="eyebrow">BERSIHKAN DATA UJI</span><h2>Hapus sesi percobaan ini?</h2><p>Semua data yang terkait dengan <strong>${esc(state.run.title)} · ${esc(state.run.roomName)}</strong> akan dihapus: peserta sesi, jawaban, observasi, kelompok, nilai manual, dan laporan percobaan. Sesi lain tidak disentuh.</p><label class="danger-confirm">Ketik <strong>HAPUS DATA UJI</strong><input id="deleteConfirmText" autocomplete="off"></label><div class="result-actions"><button class="teacher-btn secondary" id="cancelDeleteRun">Batal</button><button class="teacher-btn danger" id="doDeleteRun">Hapus Data Uji</button></div>`, root => {
+      $('#cancelDeleteRun',root).onclick=closeModal;
+      $('#doDeleteRun',root).onclick=async()=>{
+        const confirmText=String($('#deleteConfirmText',root).value||'').trim();
+        if(confirmText!=='HAPUS DATA UJI') return toast('Teks konfirmasi belum sesuai.','warning');
+        const btn=$('#doDeleteRun',root);btn.disabled=true;
+        try{
+          if(demoMode){state.demo.runs=state.demo.runs.filter(x=>x.runId!==state.run.runId);state.demo.participants=[];state.demo.run=state.demo.runs[0]||null;}
+          else await window.MPLS_API.deleteRunData({teacherKey:state.teacherKey,runId:state.run.runId,confirmText});
+          closeModal();state.selectedRunId='';state.tab='runs';await loadDashboard();toast('Data uji berhasil dibersihkan.','success');
+        }catch(err){toast(err.message,'error');btn.disabled=false;}
+      };
+    });
   }
 
   function openCreateRun() {

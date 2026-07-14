@@ -68,6 +68,7 @@
     recordPresentationRating: p => post('recordPresentationRating', p),
     saveGroupSetup: p => post('saveGroupSetup', p),
     rateGroupMember: p => post('rateGroupMember', p),
-    rateGroupPoster: p => post('rateGroupPoster', p)
+    rateGroupPoster: p => post('rateGroupPoster', p),
+    deleteRunData: p => post('deleteRunData', p)
   };
 })();
