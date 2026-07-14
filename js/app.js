@@ -29,6 +29,15 @@
     return lines.map(l => /^[A-Z][A-Z ]+\s*[—-]/.test(l) ? '<p class="definition"><strong>'+esc(l.split(/[—-]/)[0].trim())+'</strong> — '+esc(l.split(/[—-]/).slice(1).join('—').trim())+'</p>' : '<p>'+esc(l)+'</p>').join('');
   }
   function accentClass(value) { return 'accent-' + String(value || 'violet').replace(/[^a-z]/gi,''); }
+  function scrollPageToTop() {
+    // Setelah berpindah bagian, selalu mulai dari bagian paling atas layar.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      try { window.scrollTo({ top: 0, left: 0, behavior: 'auto' }); }
+      catch (_) { window.scrollTo(0, 0); }
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    }));
+  }
   function toast(message, kind='info') {
     const el = $('#toast'); el.textContent = message; el.className = 'toast ' + kind;
     clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.add('hidden'), 3200);
@@ -260,14 +269,14 @@
     $('#prevStep').onclick = prevStep;
     $('#nextStep').onclick = nextStep;
     $('#durationButton').onclick = () => openTimer(Number(item.duration_minutes)*60);
-    $$('.rail-step').forEach(btn => btn.onclick = () => { state.stepIndex = Number(btn.dataset.step); renderSession(); });
+    $$('.rail-step').forEach(btn => btn.onclick = () => { state.stepIndex = Number(btn.dataset.step); renderSession(); scrollPageToTop(); });
     if ($('#openOutline')) $('#openOutline').onclick = () => openPresentationOutline(items);
     const action = $('#contentAction'); if (action) action.onclick = () => runAction(item);
   }
 
   function openPresentationOutline(items) {
     showModal(`<span class="eyebrow">DAFTAR MATERI</span><h2>Pilih bagian yang akan ditampilkan</h2><div class="outline-list">${items.map((x,i)=>`<button class="outline-item ${i===state.stepIndex?'active':''}" data-step="${i}"><span>${i+1}</span><div><strong>${esc(x.title)}</strong><small>${esc(x.activity||'')}</small></div></button>`).join('')}</div>`, root => {
-      $$('.outline-item',root).forEach(btn => btn.onclick = () => { state.stepIndex = Number(btn.dataset.step); closeModal(); renderSession(); });
+      $$('.outline-item',root).forEach(btn => btn.onclick = () => { state.stepIndex = Number(btn.dataset.step); closeModal(); renderSession(); scrollPageToTop(); });
     });
   }
 
@@ -276,11 +285,11 @@
     return `<button class="primary-action" id="contentAction">${esc(item.action_label || 'Mulai')} <span>→</span></button>`;
   }
 
-  function prevStep() { if (!state.currentSession) return; if (state.stepIndex > 0) { state.stepIndex--; renderSession(); } }
+  function prevStep() { if (!state.currentSession) return; if (state.stepIndex > 0) { state.stepIndex--; renderSession(); scrollPageToTop(); } }
   function nextStep() {
     if (!state.currentSession) return;
     const items = sessionContent();
-    if (state.stepIndex < items.length-1) { state.stepIndex++; setProgress(state.currentSession.session_id, state.stepIndex); renderSession(); }
+    if (state.stepIndex < items.length-1) { state.stepIndex++; setProgress(state.currentSession.session_id, state.stepIndex); renderSession(); scrollPageToTop(); }
     else { setProgress(state.currentSession.session_id, items.length); celebrate(); }
   }
   function celebrate() {
