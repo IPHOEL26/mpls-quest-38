@@ -64,6 +64,10 @@
     submitObservation: p => post('submitObservation', p),
     setManualScores: p => post('setManualScores', p),
     previewFinalReport: p => post('previewFinalReport', p),
-    finalizeRun: p => post('finalizeRun', p)
+    finalizeRun: p => post('finalizeRun', p),
+    recordPresentationRating: p => post('recordPresentationRating', p),
+    saveGroupSetup: p => post('saveGroupSetup', p),
+    rateGroupMember: p => post('rateGroupMember', p),
+    rateGroupPoster: p => post('rateGroupPoster', p)
   };
 })();

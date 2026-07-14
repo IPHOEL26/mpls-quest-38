@@ -11,7 +11,7 @@
     bootstrap:null,
     teacherKey:sessionStorage.getItem('mpls_teacher_key') || '',
     runs:[], run:null, participants:[], topN:[], finalReport:null,
-    tab:'participants', messageText:'', selectedRunId:'',
+    tab:'participants', messageText:'', selectedRunId:'', groups:[],
     demo:createDemoState()
   };
 
@@ -25,8 +25,16 @@
   function modeLabel(mode) { return mode==='teacher_candidate'?'Kandidat tanpa HP':mode==='assisted'?'Dibantu guru':'Registrasi HP'; }
   function componentLabel(c) { return ({reasoning:'Bernalar',collaboration:'Kerja Sama',creativity:'Kreativitas',responsibility:'Tanggung Jawab'})[c] || c; }
   function openPresentation(sessionId) {
-    const query = sessionId ? '&session=' + encodeURIComponent(sessionId) : '';
-    window.open('./index.html?mode=presentation' + query, '_blank', 'noopener');
+    const runId = state.run ? state.run.runId : '';
+    const query = (sessionId ? '&session=' + encodeURIComponent(sessionId) : '') + (runId ? '&run=' + encodeURIComponent(runId) : '');
+    const child = window.open('./index.html?mode=presentation' + query, '_blank');
+    if (!child) return toast('Pop-up diblokir. Izinkan pop-up untuk membuka Mode Presentasi.', 'error');
+    const sendContext = event => {
+      if (event.origin !== location.origin || event.source !== child || !event.data || event.data.type !== 'MPLS_PRESENTATION_READY') return;
+      child.postMessage({type:'MPLS_TEACHER_CONTEXT', teacherKey:state.teacherKey, runId:runId, sessionId:sessionId||'', roomName:(state.run&&state.run.roomName)||'', runCode:(state.run&&state.run.runCode)||''}, location.origin);
+      window.removeEventListener('message', sendContext);
+    };
+    window.addEventListener('message', sendContext);
   }
 
   async function init() {
@@ -54,7 +62,7 @@
       let data;
       if (demoMode) data=demoDashboard(runId||state.selectedRunId);
       else data=await window.MPLS_API.teacherDashboard({teacherKey:state.teacherKey,runId:runId||state.selectedRunId});
-      state.runs=data.runs||[];state.run=data.run||null;state.participants=data.participants||[];state.topN=data.topN||[];state.finalReport=data.finalReport||null;state.selectedRunId=state.run?state.run.runId:'';
+      state.runs=data.runs||[];state.run=data.run||null;state.participants=data.participants||[];state.topN=data.topN||[];state.finalReport=data.finalReport||null;state.groups=data.groups||[];state.selectedRunId=state.run?state.run.runId:'';
       if(state.finalReport)state.messageText=state.finalReport.messageText||'';
       renderDashboard();
     } catch(err) {
@@ -67,7 +75,7 @@
     const cfg=state.bootstrap.config||{};
     app.innerHTML=`<header class="teacher-header"><div><span class="eyebrow">${esc(cfg.schoolName||'SEKOLAH')}</span><h1>Dashboard Penilaian MPLS</h1><p>Kelola sesi, kandidat tanpa HP, nilai 0–100, finalisasi, dan laporan WhatsApp.</p></div><div class="header-actions"><button class="teacher-btn presentation" id="presentationMode">📽️ Mode Presentasi</button><button class="teacher-btn secondary" id="switchRun">🗂️ Pilih Sesi</button><button class="teacher-btn primary" id="newRun">＋ Buat Sesi</button>${!demoMode?'<button class="teacher-btn secondary" id="logoutTeacher">Keluar</button>':''}</div></header>
       ${state.run?runBanner():emptyRunBanner()}
-      <nav class="teacher-nav"><button data-tab="runs" class="${state.tab==='runs'?'active':''}">🗓️ Sesi</button><button data-tab="participants" class="${state.tab==='participants'?'active':''}" ${state.run?'':'disabled'}>👥 Peserta & Nilai</button><button data-tab="observe" class="${state.tab==='observe'?'active':''}" ${state.run?'':'disabled'}>📝 Observasi</button><button data-tab="topten" class="${state.tab==='topten'?'active':''}" ${state.run?'':'disabled'}>🏆 Top 10 & WhatsApp</button></nav>
+      <nav class="teacher-nav"><button data-tab="runs" class="${state.tab==='runs'?'active':''}">🗓️ Sesi</button><button data-tab="participants" class="${state.tab==='participants'?'active':''}" ${state.run?'':'disabled'}>👥 Peserta & Nilai</button><button data-tab="observe" class="${state.tab==='observe'?'active':''}" ${state.run?'':'disabled'}>📝 Observasi</button><button data-tab="groups" class="${state.tab==='groups'?'active':''}" ${state.run?'':'disabled'}>🎨 Kelompok & Poster</button><button data-tab="topten" class="${state.tab==='topten'?'active':''}" ${state.run?'':'disabled'}>🏆 Top 10 & WhatsApp</button></nav>
       <div id="teacherBody"></div>`;
     $('#newRun').onclick=openCreateRun;
     $('#presentationMode').onclick=()=>openPresentation(state.run&&state.run.sessionId);
@@ -87,7 +95,7 @@
     if($('#copyRunCode'))$('#copyRunCode').onclick=()=>copyText(state.run.runCode,'Kode sesi disalin.');
     if($('#openRunPresentation'))$('#openRunPresentation').onclick=()=>openPresentation(state.run.sessionId);
     if($('#emptyCreate'))$('#emptyCreate').onclick=openCreateRun;
-    if(state.tab==='runs')renderRuns();else if(state.tab==='observe')renderObserve();else if(state.tab==='topten')renderTopTen();else renderParticipants();
+    if(state.tab==='runs')renderRuns();else if(state.tab==='observe')renderObserve();else if(state.tab==='groups')renderGroups();else if(state.tab==='topten')renderTopTen();else renderParticipants();
   }
 
   function renderRuns() {
@@ -115,6 +123,28 @@
     body.innerHTML=`<section class="teacher-panel"><div class="panel-heading"><div><h2>Catatan observasi cepat</h2><p>Satu bukti perilaku lebih bermakna daripada label umum.</p></div></div><div class="observation-layout"><div class="rubric-box"><h3>Empat komponen observasi</h3><p>Pilih tingkat tertinggi yang benar-benar terlihat selama sesi.</p><div class="rubric-list"><article><span class="rubric-icon">💡</span><div><strong>Bernalar</strong><small>Bertanya atau menjawab dengan alasan.</small></div><span class="rubric-points">/20</span></article><article><span class="rubric-icon">🤝</span><div><strong>Kerja Sama</strong><small>Mendengar, berbagi tugas, membantu.</small></div><span class="rubric-points">/15</span></article><article><span class="rubric-icon">🎨</span><div><strong>Kreativitas</strong><small>Gagasan, karya, solusi, presentasi.</small></div><span class="rubric-points">/15</span></article><article><span class="rubric-icon">🌱</span><div><strong>Tanggung Jawab</strong><small>Disiplin, refleksi, komitmen.</small></div><span class="rubric-points">bagian /10</span></article></div></div>
       <form id="observeForm" class="form-stack"><label>Peserta<select name="studentId" required><option value="">Pilih peserta</option>${state.participants.map(s=>`<option value="${esc(s.studentId)}">${esc(s.fullName)} · ${esc(s.className)}</option>`).join('')}</select></label><label>Komponen<select name="component"><option value="reasoning">Bernalar / Keaktifan</option><option value="collaboration">Kerja Sama</option><option value="creativity">Kreativitas</option><option value="responsibility">Tanggung Jawab</option></select></label><label>Jenis bukti<input name="observationType" placeholder="Contoh: Menjawab dengan alasan"></label><label>Tingkat<select name="level"><option value="mulai">Mulai terlihat</option><option value="baik">Baik dan konsisten</option><option value="menonjol">Sangat menonjol</option></select></label><label>Catatan bukti<textarea name="note" rows="4" placeholder="Contoh: Menjelaskan alasan Screen Zone diperlukan dan memberi contoh yang relevan."></textarea></label><button class="primary-action" type="submit" ${state.run.status!=='open'?'disabled':''}>Simpan Observasi</button></form></div></section>`;
     $('#observeForm').onsubmit=async e=>{e.preventDefault();const payload=Object.fromEntries(new FormData(e.currentTarget).entries());payload.runId=state.run.runId;payload.teacherKey=state.teacherKey;const btn=$('button[type=submit]',e.currentTarget);btn.disabled=true;try{if(demoMode){applyDemoObservation(payload);toast('Observasi demo tersimpan.','success');}else await window.MPLS_API.submitObservation(payload);await loadDashboard(state.run.runId);state.tab='observe';renderDashboard();}catch(err){toast(err.message,'error');}finally{btn.disabled=false;}};
+  }
+
+  function ratingButtons(member, component, current) {
+    const options=[['cukup','Cukup'],['baik','Baik'],['baik_sekali','Baik Sekali']];
+    return `<div class="private-rating" data-student="${esc(member.studentId)}" data-component="${esc(component)}">${options.map(([v,label])=>`<button class="rating-choice ${current===v?'selected':''}" data-level="${v}" type="button">${label}</button>`).join('')}</div>`;
+  }
+
+  function renderGroups() {
+    const body=$('#teacherBody');
+    if(!state.groups.length){body.innerHTML=`<section class="teacher-panel"><div class="empty-panel"><div class="emoji">🎨</div><h3>Kelompok belum tersimpan</h3><p>Buka Mode Presentasi, lakukan pembagian kelompok, isi nama ketua, lalu tekan <strong>Simpan Kelompok ke Panel Guru</strong>.</p><button class="teacher-btn presentation" id="openGroupPresentation">📽️ Buka Mode Presentasi</button></div></section>`;$('#openGroupPresentation').onclick=()=>openPresentation(state.run.sessionId);return;}
+    body.innerHTML=`<section class="teacher-panel"><div class="panel-heading"><div><h2>Penilaian kelompok dan poster</h2><p>Bagian ini hanya terlihat di Panel Guru. Nilai anggota tidak ditampilkan pada layar presentasi.</p></div><button class="teacher-btn secondary" id="refreshGroups">↻ Segarkan</button></div>
+      <div class="group-assessment-grid">${state.groups.map(g=>`<article class="group-assessment-card" style="--group-color:${esc(g.color||'#4f46e5')}"><header><i></i><div><small>KELOMPOK ${esc(g.groupOrder)}</small><h3>${esc(g.groupName)}</h3><p>Ketua: <strong>${esc(g.leaderName||'Belum ditentukan')}</strong> · ${g.members.length} anggota</p></div></header><section class="poster-rating"><div><strong>Nilai kualitas poster kelompok</strong><small>Diterapkan sebagai nilai kreativitas untuk seluruh anggota.</small></div>${ratingButtons({studentId:g.groupId},'poster',g.posterLevel||'')}</section><div class="member-rating-list"><div class="member-rating-head"><span>Nama anggota</span><span>Keaktifan/kerja sama</span></div>${g.members.map(m=>`<div class="member-rating-row"><div><strong>${m.isLeader?'⭐ ':''}${esc(m.fullName)}</strong><small>${m.isLeader?'Ketua kelompok':'Anggota'}</small></div>${ratingButtons(m,'collaboration',m.collaborationLevel||'')}</div>`).join('')}</div></article>`).join('')}</div></section>`;
+    $('#refreshGroups').onclick=()=>loadDashboard(state.run.runId);
+    $$('.private-rating').forEach(box=>$$('.rating-choice',box).forEach(btn=>btn.onclick=async()=>{
+      if(state.run.status!=='open')return toast('Sesi sudah difinalisasi.','error');
+      const component=box.dataset.component, level=btn.dataset.level;$$('.rating-choice',box).forEach(x=>x.disabled=true);
+      try{
+        if(component==='poster') await window.MPLS_API.rateGroupPoster({teacherKey:state.teacherKey,runId:state.run.runId,groupId:box.dataset.student,level});
+        else await window.MPLS_API.rateGroupMember({teacherKey:state.teacherKey,runId:state.run.runId,studentId:box.dataset.student,level,note:'Penilaian kontribusi dan kerja sama dalam kegiatan poster 3S.'});
+        await loadDashboard(state.run.runId);state.tab='groups';renderDashboard();toast('Penilaian kelompok tersimpan.','success');
+      }catch(err){toast(err.message,'error');$$('.rating-choice',box).forEach(x=>x.disabled=false);}
+    }));
   }
 
   function renderTopTen() {
@@ -178,7 +208,7 @@
   function applyDemoObservation(p){const s=state.demo.participants.find(x=>x.studentId===p.studentId);if(!s)return;const max={reasoning:20,collaboration:15,creativity:15,responsibility:6},level={mulai:1,baik:2,menonjol:3}[p.level]||1;if(p.component==='responsibility')s.reflectionScore=Math.min(10,4+(level/3)*6);else{s[p.component+'Score']=Math.round((level/3)*max[p.component]*100)/100;}s.finalScore=s.quizScore+s.reasoningScore+s.collaborationScore+s.creativityScore+s.reflectionScore;s.note=p.note||s.note;state.demo.participants.sort((a,b)=>b.finalScore-a.finalScore);}
   function demoPreview(){const top=state.demo.participants.slice(0,10),text=buildDemoMessage(state.demo.run,state.demo.participants.length,top);return{messageText:text,topN:top};}
   function finalizeDemo(){const p=demoPreview();state.demo.run.status='finalized';state.demo.finalReport={reportId:'REP-DEMO',status:'final',participantCount:state.demo.participants.length,topN:p.topN,messageText:p.messageText};return{finalReport:state.demo.finalReport};}
-  function buildDemoMessage(run,count,top){const lines=['Assalamu’alaikum warahmatullahi wabarakatuh.','','Yth. Panitia Masa Pengenalan Lingkungan Sekolah','SMP Negeri 38 Norekutengah','','Dengan hormat,','','Berikut kami sampaikan hasil penilaian peserta kegiatan MPLS dengan rincian:','','Materi       : '+run.title,'Hari/Tanggal : '+run.runDate,'Ruangan      : '+run.roomName,'Pemateri     : '+run.presenter,'Peserta Terdata: '+count+' peserta','','DAFTAR '+top.length+' PESERTA TERBAIK',''];top.forEach((s,i)=>lines.push((i+1)+'. '+s.fullName+' — '+s.className+' — Nilai '+fmt(s.finalScore)));lines.push('','Penilaian menggunakan skala 0–100 dan mempertimbangkan pemahaman materi, keaktifan bernalar, kerja sama, kreativitas, serta refleksi/tanggung jawab peserta.','','Data lengkap dan snapshot hasil akhir telah tersimpan pada Google Sheet kegiatan MPLS.','','Demikian hasil ini kami sampaikan untuk menjadi bahan pertimbangan panitia. Atas perhatian dan kerja samanya, kami ucapkan terima kasih.','','Wassalamu’alaikum warahmatullahi wabarakatuh.','','Pemateri,',run.presenter);return lines.join('\n');}
+  function buildDemoMessage(run,count,top){const lines=['Assalamu’alaikum warahmatullahi wabarakatuh.','','Yth. Panitia Masa Pengenalan Lingkungan Sekolah','SMP Negeri 38 Maluku Tengah','','Dengan hormat,','','Berikut kami sampaikan hasil penilaian peserta kegiatan MPLS dengan rincian:','','Materi       : '+run.title,'Hari/Tanggal : '+run.runDate,'Ruangan      : '+run.roomName,'Pemateri     : '+run.presenter,'Peserta Terdata: '+count+' peserta','','DAFTAR '+top.length+' PESERTA TERBAIK',''];top.forEach((s,i)=>lines.push((i+1)+'. '+s.fullName+' — '+s.className+' — Nilai '+fmt(s.finalScore)));lines.push('','Penilaian menggunakan skala 0–100 dan mempertimbangkan pemahaman materi, keaktifan bernalar, kerja sama, kreativitas, serta refleksi/tanggung jawab peserta.','','Data lengkap dan snapshot hasil akhir telah tersimpan pada Google Sheet kegiatan MPLS.','','Demikian hasil ini kami sampaikan untuk menjadi bahan pertimbangan panitia. Atas perhatian dan kerja samanya, kami ucapkan terima kasih.','','Wassalamu’alaikum warahmatullahi wabarakatuh.','','Pemateri,',run.presenter);return lines.join('\n');}
 
   init().catch(err=>{console.error(err);app.innerHTML=`<div class="empty-panel"><div class="emoji">⚠️</div><h2>Aplikasi tidak dapat dimuat</h2><p>${esc(err.message)}</p><button class="teacher-btn primary" onclick="location.reload()">Muat ulang</button></div>`;});
 })();

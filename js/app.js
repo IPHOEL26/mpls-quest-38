@@ -6,11 +6,12 @@
   const urlParams = new URLSearchParams(window.location.search);
   const presentationMode = urlParams.get('mode') === 'presentation';
   const preferredPresentationSession = urlParams.get('session') || '';
+  const preferredRunId = urlParams.get('run') || '';
 
   const state = {
     data:null, currentSession:null, stepIndex:0,
     student:loadJSON('mpls_student'), progress:loadJSON('mpls_progress') || {},
-    quiz:null, timer:{seconds:0, initial:0, running:false, handle:null}, teacherKey:'', presentationMode
+    quiz:null, timer:{seconds:0, initial:0, running:false, handle:null}, teacherKey:'', presentationMode, presentationGroups:null, teacherContext:null
   };
 
   function esc(value) {
@@ -38,8 +39,54 @@
   function closeModal() { $('#modal').classList.add('hidden'); $('#modalContent').innerHTML=''; }
   function setProgress(sessionId, step) { if (state.presentationMode) return; state.progress[sessionId] = Math.max(Number(state.progress[sessionId] || 0), step); saveJSON('mpls_progress', state.progress); }
 
+
+
+  function setupPresentationBridge() {
+    if (!state.presentationMode) return;
+    try { state.teacherContext = JSON.parse(sessionStorage.getItem('mpls_presentation_context') || 'null'); } catch (_) {}
+    window.addEventListener('message', event => {
+      if (event.origin !== location.origin || !event.data || event.data.type !== 'MPLS_TEACHER_CONTEXT') return;
+      state.teacherContext = event.data;
+      state.teacherKey = String(event.data.teacherKey || '');
+      sessionStorage.setItem('mpls_presentation_context', JSON.stringify(event.data));
+      toast('Mode Presentasi terhubung ke sesi ' + (event.data.runCode || ''), 'success');
+    });
+    if (window.opener) window.opener.postMessage({type:'MPLS_PRESENTATION_READY'}, location.origin);
+  }
+
+  function levelMeta(level) {
+    return ({cukup:{api:'mulai',label:'Cukup',numeric:6.67},baik:{api:'baik',label:'Baik',numeric:13.33},baik_sekali:{api:'menonjol',label:'Baik Sekali',numeric:20}})[level];
+  }
+
+  function requirePresentationContext() {
+    if (state.teacherContext && state.teacherContext.teacherKey && (state.teacherContext.runId || preferredRunId)) return Promise.resolve(state.teacherContext);
+    return new Promise((resolve,reject)=>{
+      showModal(`<span class="eyebrow">SAMBUNGKAN PENILAIAN</span><h2>Masukkan kunci guru</h2><p>Ini hanya diperlukan bila Mode Presentasi dibuka langsung, bukan melalui Panel Guru.</p><form id="presentationAuth" class="form-stack"><label>Kunci guru<input type="password" name="teacherKey" required></label><label>ID sesi pelaksanaan<input name="runId" value="${esc(preferredRunId)}" required></label><label>Nama kelas/ruangan<input name="roomName" placeholder="Contoh: Ruang 3"></label><button class="primary-action" type="submit">Hubungkan</button></form>`,root=>{$('#presentationAuth',root).onsubmit=e=>{e.preventDefault();const f=Object.fromEntries(new FormData(e.currentTarget).entries());state.teacherContext={teacherKey:f.teacherKey,runId:f.runId,roomName:f.roomName,sessionId:preferredPresentationSession};state.teacherKey=f.teacherKey;sessionStorage.setItem('mpls_presentation_context',JSON.stringify(state.teacherContext));closeModal();resolve(state.teacherContext);};});
+    });
+  }
+
+  function applyPresentationData() {
+    const pack = window.MPLS_PRESENTATION_DATA;
+    if (!pack) return;
+    const sessions = Array.isArray(state.data.sessions) ? state.data.sessions.slice() : [];
+    Object.values(pack.sessions || {}).forEach(local => {
+      const idx = sessions.findIndex(s => s.session_id === local.session_id);
+      if (idx >= 0) sessions[idx] = Object.assign({}, sessions[idx], local);
+      else sessions.push(local);
+    });
+    let content = Array.isArray(state.data.content) ? state.data.content.slice() : [];
+    Object.entries(pack.content || {}).forEach(([sessionId, rows]) => {
+      content = content.filter(item => item.session_id !== sessionId).concat(rows);
+    });
+    state.data.sessions = sessions;
+    state.data.content = content;
+    state.data.presentationVersion = pack.version;
+  }
+
   async function init() {
     state.data = await window.MPLS_API.bootstrap();
+    setupPresentationBridge();
+    if (state.presentationMode) applyPresentationData();
     const cfg = state.data.config || {};
     $('#brandTitle').textContent = cfg.appTitle || 'MPLS Quest 38';
     $('#brandSchool').textContent = cfg.schoolName || 'Sekolah';
@@ -140,6 +187,43 @@
     return (state.data.content || []).filter(c => c.session_id === state.currentSession.session_id).sort((a,b) => Number(a.display_order)-Number(b.display_order));
   }
 
+
+  function renderItemContent(item) {
+    if (!state.presentationMode || !item.template) return bodyHTML(item.body);
+    const cue = item.teacher_cue ? `<aside class="teacher-cue"><span>👩‍🏫</span><div><strong>Panduan Pemateri</strong><p>${esc(item.teacher_cue)}</p></div></aside>` : '';
+    if (item.template === 'opening_visual') {
+      return `${bodyHTML(item.body)}<div class="visual-story-grid">${(item.visuals||[]).map(v=>`<article><span>${esc(v.icon)}</span><h3>${esc(v.title)}</h3><p>${esc(v.text)}</p></article>`).join('')}</div>${cue}`;
+    }
+    if (item.template === 'trigger_questions') {
+      return `${bodyHTML(item.body)}<div class="prompt-preview">${(item.prompts||[]).slice(0,3).map((q,i)=>`<article><span>${i+1}</span><p>${esc(q)}</p></article>`).join('')}</div>${cue}`;
+    }
+    if (item.template === 'film') {
+      return `<div class="film-feature"><div class="film-poster"><span>🎬</span><small>FILM PENDEK</small><strong>KEMENANGAN<br>SEJATI</strong></div><div>${bodyHTML(item.body)}<div class="watch-focus"><span>1</span> Cara tokoh mulai terlibat <span>2</span> Dampak yang muncul <span>3</span> Keputusan aman</div></div></div>${cue}`;
+    }
+    if (item.template === 'discussion_flow') {
+      return `${bodyHTML(item.body)}<div class="discussion-map"><article><span>🔎</span><strong>Faktor Pemicu</strong><small>Uang instan, tekanan teman, rasa ingin mencoba, kurangnya pengetahuan.</small></article><article><span>⚠️</span><strong>Dampak</strong><small>Keuangan, psikologis, hubungan keluarga, belajar, dan masa depan.</small></article><article><span>🤝</span><strong>Tindakan Aman</strong><small>Berhenti, blokir, simpan bukti seperlunya, dan cari bantuan.</small></article></div>${item.key_message?`<div class="key-message"><strong>Pesan kunci:</strong> ${esc(item.key_message)}</div>`:''}`;
+    }
+    if (item.template === 'habit_check') {
+      return `${bodyHTML(item.body)}<div class="statement-board">${(item.statements||[]).map((x,i)=>`<article><span>${String.fromCharCode(97+i)})</span><strong>${esc(x)}</strong></article>`).join('')}</div>`;
+    }
+    if (item.template === 'three_s_material') {
+      return `${bodyHTML(item.body)}<figure class="three-s-poster"><img src="${esc(item.image_url)}" alt="Infografik Screen Time, Screen Zone, dan Screen Break"><figcaption>Klik tombol di bawah untuk memperbesar infografik dan membuka materi referensi.</figcaption></figure>${cue}`;
+    }
+    if (item.template === 'group_builder') {
+      return `${bodyHTML(item.body)}<div class="group-flow"><article><span>1</span><strong>Atur kelompok</strong><small>Jumlah, nama, dan warna bola.</small></article><article><span>2</span><strong>Masukkan jumlah murid</strong><small>Aplikasi membagi secara merata.</small></article><article><span>3</span><strong>Ambil bola</strong><small>Tampilkan kelompok murid satu per satu.</small></article></div>`;
+    }
+    if (item.template === 'poster_workshop') {
+      return `${bodyHTML(item.body)}<div class="workshop-columns"><section><h3>Alat dan bahan</h3><ul>${(item.materials||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section><section><h3>Langkah kerja</h3><ol>${(item.poster_steps||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol></section></div>`;
+    }
+    if (item.template === 'group_presentations') {
+      return `${bodyHTML(item.body)}<div class="presentation-prompts">${(item.presentation_prompts||[]).map((x,i)=>`<article><span>${i+1}</span><p>${esc(x)}</p></article>`).join('')}</div><div class="feedback-formula"><strong>Umpan balik kelas:</strong> “Satu kekuatan” + “Satu langkah lebih baik”.</div>`;
+    }
+    if (item.template === 'moral_closing') {
+      return `${bodyHTML(item.body)}<div class="moral-grid">${(item.morals||[]).map((x,i)=>`<article><span>${['🛡️','💡','⏱️','🤝','🌟'][i]||'✓'}</span><p>${esc(x)}</p></article>`).join('')}</div>`;
+    }
+    return bodyHTML(item.body);
+  }
+
   function renderSession() {
     const items = sessionContent(), item = items[state.stepIndex];
     if (!item) return renderHome();
@@ -155,9 +239,10 @@
         <aside class="step-rail" aria-label="Daftar pos">${items.map((x,i) => `<button class="rail-step ${i===state.stepIndex?'active':''} ${i<state.stepIndex?'done':''}" data-step="${i}"><span>${i<state.stepIndex?'✓':i+1}</span><small>${esc(x.title)}</small></button>`).join('')}</aside>
         <section class="content-stage">
           <article class="content-card ${accentClass(item.accent)}">
-            <div class="content-kicker"><span class="content-icon">${esc(item.icon)}</span><span>POS ${state.stepIndex+1} DARI ${items.length}</span><button class="duration-btn" id="durationButton">⏱ ${esc(item.duration_minutes)} menit</button></div>
+            <div class="content-kicker"><span class="content-icon">${esc(item.icon)}</span><span>${esc(item.activity || ('POS '+(state.stepIndex+1)+' DARI '+items.length))}</span><button class="duration-btn" id="durationButton">⏱ ${esc(item.duration_minutes)} menit</button></div>
+            ${item.activity_title ? `<div class="activity-banner"><strong>${esc(item.activity_title)}</strong><small>Pos ${state.stepIndex+1} dari ${items.length}</small></div>` : ''}
             <h2>${esc(item.title)}</h2>
-            <div class="content-body">${bodyHTML(item.body)}</div>
+            <div class="content-body">${renderItemContent(item)}</div>
             ${actionButton(item)}
           </article>
           <nav class="step-nav"><button id="prevStep" ${state.stepIndex===0?'disabled':''}>← Sebelumnya</button><span>${pct}% selesai</span><button id="nextStep">${state.stepIndex===items.length-1?'Selesaikan':'Berikutnya →'}</button></nav>
@@ -190,8 +275,16 @@
   function runAction(item) {
     const action = String(item.action || '');
     if (action === 'open_media') window.open(item.media_url, '_blank', 'noopener');
+    else if (action === 'open_film') openFilm(item);
+    else if (action === 'guided_prompts') openGuidedPrompts(item);
+    else if (action === 'guided_discussion') openGuidedDiscussion(item);
     else if (action === 'prompt_picker') openPromptPicker(item.body);
-    else if (action === 'habit_poll') openHabitPoll();
+    else if (action === 'habit_poll') openHabitPoll(item);
+    else if (action === 'open_3s_material') openThreeSMaterial(item);
+    else if (action === 'group_builder') openGroupBuilder(item);
+    else if (action === 'poster_workshop') openPosterWorkshop(item);
+    else if (action === 'group_presentations') openGroupPresentations(item);
+    else if (action === 'moral_closing') openMoralClosing(item);
     else if (action === 'three_s_cards') openThreeSCards(item.media_url);
     else if (action === 'three_s_mission') openThreeSMission();
     else if (action === 'rubric') openRubric();
@@ -199,6 +292,161 @@
     else if (action === 'preference_quiz') startPreferenceQuiz();
     else if (action === 'reflection') openReflection();
     else if (action.startsWith('quiz:')) startQuiz(action.split(':')[1]);
+  }
+
+
+  function openFilm(item) {
+    const id = item.youtube_id || 'xJD37cmYPws';
+    const direct = item.media_url || `https://youtu.be/${id}`;
+    showModal(`<span class="eyebrow">KEGIATAN 1 · MENONTON FILM</span><h2>FILM PENDEK “KEMENANGAN SEJATI”</h2>
+      <div class="video-frame"><iframe src="https://www.youtube-nocookie.com/embed/${esc(id)}?rel=0" title="Film Pendek Kemenangan Sejati" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe></div>
+      <div class="video-actions"><a class="primary-action" href="${esc(direct)}" target="_blank" rel="noopener">Buka di YouTube ↗</a><button class="secondary-action" id="filmTimer">⏱ Timer ${esc(item.duration_minutes)} Menit</button></div>
+      <p class="note"><strong>Fokus pengamatan:</strong> bagaimana tokoh mulai terlibat, dampak yang terjadi, dan keputusan aman yang seharusnya dapat diambil.</p>`, root => {
+        $('#filmTimer',root).onclick=()=>{closeModal();openTimer(Number(item.duration_minutes||17)*60);};
+      });
+  }
+
+  function normalizePrompt(raw,index,prefix) {
+    if (typeof raw === 'string') return {id:(prefix||'Q')+'-'+(index+1),question:raw,answer:'Guru menegaskan jawaban yang aman, relevan, dan disertai alasan.'};
+    return {id:raw.id||(prefix||'Q')+'-'+(index+1),question:raw.question||raw.prompt||'',answer:raw.answer||raw.modelAnswer||''};
+  }
+
+  async function savePromptRating(prompt, studentName, level, source) {
+    const context=await requirePresentationContext();
+    const meta=levelMeta(level);if(!meta)throw new Error('Pilihan nilai tidak valid.');
+    const result=await window.MPLS_API.recordPresentationRating({teacherKey:context.teacherKey,runId:context.runId||preferredRunId,fullName:studentName,className:context.roomName||'Peserta Kelas',promptId:prompt.id,promptText:prompt.question,modelAnswer:prompt.answer,level,source:source||'Pertanyaan Pemantik'});
+    return result;
+  }
+
+  function openAssessedPromptFlow(item, sourceLabel, closingHtml) {
+    const prompts=(item.prompts||[]).map((x,i)=>normalizePrompt(x,i,sourceLabel==='Diskusi Film'?'REF':'PEM'));
+    let index=0, revealed=false, studentName='';
+    const render=root=>{
+      const prompt=prompts[index];
+      root.innerHTML=`<span class="eyebrow">${esc(sourceLabel.toUpperCase())} ${index+1} DARI ${prompts.length}</span><div class="prompt-display">${esc(prompt.question)}</div>
+        <div class="teacher-instruction"><span>⏳</span><p>Masukkan nama murid yang akan menjawab. Beri waktu berpikir, dengarkan jawabannya, lalu tampilkan jawaban acuan.</p></div>
+        <label class="answering-student">Nama murid yang menjawab<input id="answerStudentName" value="${esc(studentName)}" placeholder="Ketik nama sebelum murid menjawab"></label>
+        ${revealed?`<section class="model-answer"><span>JAWABAN ACUAN / PENGUATAN</span><p>${esc(prompt.answer)}</p></section><section class="rating-panel"><strong>Nilai kualitas jawaban</strong><small>Nilai akan masuk ke komponen Bernalar /20 pada Google Sheet.</small><div class="rating-range"><button data-level="cukup" class="rate-answer enough">Cukup</button><button data-level="baik" class="rate-answer good">Baik</button><button data-level="baik_sekali" class="rate-answer excellent">Baik Sekali</button></div></section>`:''}
+        <div class="modal-nav"><button class="secondary-action" id="promptPrev" ${index===0?'disabled':''}>← Sebelumnya</button><button class="secondary-action" id="thinkTimer">Timer 30 Detik</button>${revealed?'<button class="secondary-action" id="hideAnswer">Sembunyikan Jawaban</button>':'<button class="primary-action" id="revealAnswer">Tampilkan Jawaban Acuan</button>'}<button class="primary-action" id="promptNext">${index===prompts.length-1?'Selesai':'Pertanyaan Berikutnya →'}</button></div>`;
+      const nameInput=$('#answerStudentName',root);nameInput.oninput=()=>studentName=nameInput.value;
+      $('#promptPrev',root).onclick=()=>{if(index>0){index--;revealed=false;studentName='';render(root);}};
+      $('#thinkTimer',root).onclick=()=>openTimer(30);
+      if($('#revealAnswer',root))$('#revealAnswer',root).onclick=()=>{studentName=String(nameInput.value||'').trim();if(!studentName)return toast('Masukkan nama murid yang menjawab terlebih dahulu.','warning');revealed=true;render(root);};
+      if($('#hideAnswer',root))$('#hideAnswer',root).onclick=()=>{revealed=false;render(root);};
+      $$('.rate-answer',root).forEach(btn=>btn.onclick=async()=>{const chosen=String(nameInput.value||studentName).trim();if(!chosen)return toast('Nama murid belum diisi.','warning');$$('.rate-answer',root).forEach(x=>x.disabled=true);try{const r=await savePromptRating(prompt,chosen,btn.dataset.level,sourceLabel);toast(`Nilai ${r.ratingLabel} tersimpan untuk ${chosen} (${r.numericScore}/20).`,'success');btn.classList.add('saved-rating');}catch(err){toast(err.message,'error');$$('.rate-answer',root).forEach(x=>x.disabled=false);}});
+      $('#promptNext',root).onclick=()=>{if(index<prompts.length-1){index++;revealed=false;studentName='';render(root);}else{$('#modalContent').innerHTML=closingHtml||'<div class="celebrate"><div class="big-emoji">🙌</div><h2>Terima kasih atas jawaban kalian</h2><p>Guru memberi penguatan tanpa menghakimi pengalaman siapa pun.</p></div>';}};
+    };
+    showModal('<div></div>',render);
+  }
+
+  function openGuidedPrompts(item) {
+    openAssessedPromptFlow(item,'Pertanyaan Pemantik','<div class="celebrate"><div class="big-emoji">🙌</div><h2>Terima kasih atas jawaban kalian</h2><p>Tekankan bahwa kita sedang belajar mengenali risiko dan menjaga diri, bukan menghakimi pengalaman siapa pun.</p></div>');
+  }
+
+  function openGuidedDiscussion(item) {
+    openAssessedPromptFlow(item,'Diskusi Film',`<div class="celebrate"><div class="big-emoji">🤝</div><span class="eyebrow">PESAN KUNCI</span><h2>Berani mencari bantuan</h2><p>${esc(item.key_message||'')}</p></div>`);
+  }
+
+  function openThreeSMaterial(item) {
+    showModal(`<span class="eyebrow">MATERI PRINSIP 3S</span><h2>Screen Time, Screen Zone, dan Screen Break</h2>
+      <figure class="material-lightbox"><img src="${esc(item.image_url||'./assets/materi-prinsip-3s.jpg')}" alt="Materi prinsip 3S"></figure>
+      <div class="video-actions"><a class="primary-action" href="${esc(item.media_url||'#')}" target="_blank" rel="noopener">Buka Materi Google Drive ↗</a><button class="secondary-action" id="threeSTimer">Timer 4 Menit</button></div>
+      <div class="three-grid compact-three"><article><span>⏱️</span><h3>Screen Time</h3><small>Batasi durasi menatap layar agar mata, tidur, gerak, dan emosi tetap terjaga.</small></article><article><span>📍</span><h3>Screen Zone</h3><small>Sepakati tempat dan situasi yang boleh atau tidak boleh memakai gawai.</small></article><article><span>🌿</span><h3>Screen Break</h3><small>Ambil jeda untuk melihat jauh, bergerak, minum, meregangkan tubuh, dan berinteraksi.</small></article></div>`, root=>{
+        $('#threeSTimer',root).onclick=()=>{closeModal();openTimer(4*60);};
+      });
+  }
+
+  function shuffleArray(values) {
+    const a=values.slice();
+    for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}
+    return a;
+  }
+
+  function openGroupBuilder(item) {
+    const palette = [
+      {name:'Biru',hex:'#2563eb'},{name:'Hijau',hex:'#16a34a'},{name:'Kuning',hex:'#eab308'},
+      {name:'Merah',hex:'#dc2626'},{name:'Ungu',hex:'#7c3aed'},{name:'Oranye',hex:'#ea580c'},
+      {name:'Merah Muda',hex:'#db2777'},{name:'Toska',hex:'#0891b2'}
+    ];
+    const suggested = item.suggested_groups || ['Screen Time','Screen Zone','Screen Break'];
+    showModal(`<span class="eyebrow">PEMBAGI KELOMPOK BERWARNA</span><h2>Bagi anggota secara merata</h2><p>Masukkan jumlah murid, atur nama kelompok dan warna bola, kemudian panggil murid satu per satu untuk mengambil undian.</p>
+      <form id="groupSetup" class="form-stack">
+        <div class="form-row"><label>Jumlah murid<input type="number" name="studentCount" min="1" max="100" value="30" required></label><label>Jumlah kelompok<select name="groupCount">${[2,3,4,5,6,7,8].map(n=>`<option value="${n}" ${n===3?'selected':''}>${n} kelompok</option>`).join('')}</select></label></div>
+        <div id="groupFields" class="group-field-list"></div>
+        <button class="primary-action" type="submit">Siapkan Undian Bola</button>
+      </form>`, root=>{
+        const form=$('#groupSetup',root), fields=$('#groupFields',root), countSelect=form.elements.groupCount;
+        const drawFields=()=>{
+          const count=Number(countSelect.value);
+          fields.innerHTML=Array.from({length:count},(_,i)=>`<div class="group-field"><span class="group-number">${i+1}</span><label>Nama kelompok<input name="groupName${i}" value="${esc(suggested[i]||('Kelompok '+(i+1)))}" required></label><label>Nama ketua<input name="groupLeader${i}" placeholder="Diisi setelah anggota terbentuk"></label><label>Warna bola<select name="groupColor${i}">${palette.map((c,j)=>`<option value="${c.hex}|${c.name}" ${j===i?'selected':''}>${c.name}</option>`).join('')}</select></label></div>`).join('');
+        };
+        countSelect.onchange=drawFields;drawFields();
+        form.onsubmit=e=>{
+          e.preventDefault();const fd=new FormData(form), total=Number(fd.get('studentCount')), count=Number(fd.get('groupCount'));
+          const groups=Array.from({length:count},(_,i)=>{const [color,colorName]=String(fd.get('groupColor'+i)).split('|');return {id:'GRP-'+(i+1),name:String(fd.get('groupName'+i)||('Kelompok '+(i+1))),leaderName:String(fd.get('groupLeader'+i)||'').trim(),color,colorName};});
+          const assignments=shuffleArray(Array.from({length:total},(_,i)=>i%count));
+          state.presentationGroups={groups,assignments,cursor:0,results:[]};
+          renderGroupDraw(root);
+        };
+      });
+  }
+
+  function renderGroupDraw(root) {
+    const data=state.presentationGroups;
+    if(!data) return;
+    const last=data.results[data.results.length-1], remaining=data.assignments.length-data.cursor;
+    const counts=data.groups.map(g=>data.results.filter(r=>String(r.groupId)===String(g.id)).length);
+    root.innerHTML=`<span class="eyebrow">UNDIAN KELOMPOK · ${data.cursor}/${data.assignments.length} MURID</span><h2>Ambil Bola Kelompok</h2>
+      <div class="draw-stage">${last?`<div class="color-ball" style="--ball:${esc(last.color)}"><span>${esc(last.number)}</span></div><h3>${esc(last.studentName)}</h3><p>Masuk ke <strong style="color:${esc(last.color)}">${esc(last.groupName)}</strong> · Bola ${esc(last.colorName)}</p>`:`<div class="color-ball waiting"><span>?</span></div><h3>Siap untuk murid pertama</h3><p>Masukkan nama bila diperlukan, kemudian klik Ambil Bola.</p>`}</div>
+      <label class="inline-name">Nama murid (opsional)<input id="drawStudentName" placeholder="Kosongkan untuk Murid ${data.cursor+1}" ${remaining===0?'disabled':''}></label>
+      <div class="draw-actions"><button class="primary-action" id="drawNext" ${remaining===0?'disabled':''}>🎱 Ambil Bola ${remaining?`(${remaining} tersisa)`:''}</button><button class="secondary-action" id="drawReset">Atur Ulang</button></div>
+      <div class="group-summary">${data.groups.map((g,i)=>`<article><i style="background:${esc(g.color)}"></i><strong>${esc(g.name)}</strong><small>${counts[i]} anggota</small>${remaining===0?`<label class="leader-final">Ketua kelompok<input data-leader-group="${esc(g.id)}" value="${esc(g.leaderName||'')}" placeholder="Ketik nama ketua"></label>`:(g.leaderName?`<small>Ketua: ${esc(g.leaderName)}</small>`:'')}</article>`).join('')}</div>
+      ${remaining===0?'<div class="key-message"><strong>Pembagian selesai.</strong> Semua murid telah terbagi secara merata. <button class="primary-action compact-save" id="saveGroupsToTeacher">Simpan Kelompok ke Panel Guru</button></div>':''}`;
+    $('#drawNext',root).onclick=()=>{
+      if(data.cursor>=data.assignments.length)return;
+      const group=data.groups[data.assignments[data.cursor]], name=String($('#drawStudentName',root).value||'').trim()||`Murid ${data.cursor+1}`;
+      data.results.push({number:data.cursor+1,studentName:name,groupId:group.id,groupName:group.name,color:group.color,colorName:group.colorName});data.cursor++;renderGroupDraw(root);
+    };
+    if($('#saveGroupsToTeacher',root))$('#saveGroupsToTeacher',root).onclick=async()=>{
+      try{const context=await requirePresentationContext();$$('[data-leader-group]',root).forEach(input=>{const g=data.groups.find(x=>String(x.id)===String(input.dataset.leaderGroup));if(g)g.leaderName=String(input.value||'').trim();});const payloadGroups=data.groups.map(g=>({groupId:g.id,groupName:g.name,color:g.color,colorName:g.colorName,leaderName:g.leaderName,members:data.results.filter(r=>String(r.groupId)===String(g.id)).map(r=>r.studentName)}));await window.MPLS_API.saveGroupSetup({teacherKey:context.teacherKey,runId:context.runId||preferredRunId,groups:payloadGroups});toast('Kelompok dan nama anggota tersimpan di Panel Guru.','success');$('#saveGroupsToTeacher',root).disabled=true;$('#saveGroupsToTeacher',root).textContent='✓ Tersimpan';}catch(err){toast(err.message,'error');}
+    };
+    $('#drawReset',root).onclick=()=>{state.presentationGroups=null;closeModal();openGroupBuilder({suggested_groups:['Screen Time','Screen Zone','Screen Break']});};
+  }
+
+  function activeGroupList() {
+    return state.presentationGroups && state.presentationGroups.groups ? state.presentationGroups.groups : [
+      {name:'Screen Time',color:'#2563eb',colorName:'Biru'},
+      {name:'Screen Zone',color:'#16a34a',colorName:'Hijau'},
+      {name:'Screen Break',color:'#eab308',colorName:'Kuning'}
+    ];
+  }
+
+  function openPosterWorkshop(item) {
+    const groups=activeGroupList();
+    const missionText=name=>/time/i.test(name)?'Buat poster tentang waktu menatap layar, menonton TV, atau bermain gim.':/zone/i.test(name)?'Buat poster aturan tempat di sekolah atau rumah yang boleh dan tidak boleh menggunakan gawai.':/break/i.test(name)?'Buat poster kegiatan bermakna yang dapat dilakukan selain menatap layar.':'Buat poster kampanye digital sehat sesuai prinsip 3S.';
+    const showTasks=root=>{root.innerHTML=`<span class="eyebrow">LOKAKARYA POSTER</span><h2>Setiap kelompok mulai berkarya</h2><div class="mission-group-grid">${groups.map(g=>`<article style="--group-color:${esc(g.color)}"><i></i><h3>${esc(g.name)}</h3><p>${esc(missionText(g.name))}</p></article>`).join('')}</div><div class="workshop-columns modal-workshop"><section><h3>Alat dan bahan</h3><ul>${(item.materials||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ul></section><section><h3>Langkah kerja</h3><ol>${(item.poster_steps||[]).map(x=>`<li>${esc(x)}</li>`).join('')}</ol></section></div><div class="privacy-note">🔒 Penilaian setiap anggota dan kualitas poster dilakukan di tab <strong>Kelompok & Poster</strong> pada Panel Guru, sehingga tidak terlihat oleh kelas.</div><div class="video-actions"><button class="primary-action" id="posterTimer">⏱ Mulai Timer ${esc(item.duration_minutes||10)} Menit</button><button class="secondary-action" id="posterRubric">Lihat Fokus Penilaian</button></div>`;$('#posterTimer',root).onclick=()=>{closeModal();openTimer(Number(item.duration_minutes||10)*60);};$('#posterRubric',root).onclick=openRubric;};
+    showModal(`<span class="eyebrow">CONTOH SEBELUM BERKARYA</span><h2>Struktur poster yang baik</h2><p>Poster harus dapat dipahami dalam beberapa detik: judul kuat, gambar relevan, pesan singkat, tindakan nyata, dan ajakan yang mudah diingat.</p><div class="sample-poster"><div class="sample-poster-badge">KAMPANYE 3S</div><h3>ISTIRAHATKAN LAYAR,<br>SEGARKAN TUBUH!</h3><div class="sample-poster-visual"><span>📱</span><b>30 MENIT</b><span>→</span><span>🌿</span></div><ul><li>Lihat jauh selama 20 detik</li><li>Berdiri dan regangkan tubuh</li><li>Minum air dan ngobrol dengan teman</li></ul><strong class="sample-call">Ayo ambil SCREEN BREAK sekarang!</strong></div><div class="poster-anatomy"><article><span>1</span><b>Judul</b><small>Besar, singkat, mudah dibaca.</small></article><article><span>2</span><b>Gambar</b><small>Mendukung pesan, bukan sekadar hiasan.</small></article><article><span>3</span><b>Isi</b><small>3–5 tindakan nyata.</small></article><article><span>4</span><b>Ajakan</b><small>Kalimat penutup yang kuat.</small></article></div><button class="primary-action" id="continuePosterTask">Saya Paham, Lanjut ke Tugas Kelompok →</button>`,root=>{$('#continuePosterTask',root).onclick=()=>showTasks(root);});
+  }
+
+  function openGroupPresentations(item) {
+    const groups=activeGroupList();let index=0;
+    const render=root=>{
+      const g=groups[index];
+      root.innerHTML=`<span class="eyebrow">PRESENTASI ${index+1} DARI ${groups.length}</span><div class="presenting-group" style="--group-color:${esc(g.color)}"><i></i><small>KELOMPOK YANG TAMPIL</small><h2>${esc(g.name)}</h2></div><div class="presentation-prompts modal-prompts">${(item.presentation_prompts||[]).map((x,i)=>`<article><span>${i+1}</span><p>${esc(x)}</p></article>`).join('')}</div><div class="feedback-formula"><strong>Teman memberikan:</strong> satu kekuatan + satu langkah lebih baik.</div><div class="modal-nav"><button class="secondary-action" id="groupTimer">⏱ Timer 2 Menit</button><button class="primary-action" id="nextGroup">${index===groups.length-1?'Selesaikan Presentasi':'Kelompok Berikutnya →'}</button></div>`;
+      $('#groupTimer',root).onclick=()=>openTimer(2*60);
+      $('#nextGroup',root).onclick=()=>{if(index<groups.length-1){index++;render(root);}else{$('#modalContent').innerHTML='<div class="celebrate"><div class="big-emoji">👏</div><h2>Apresiasi untuk semua kelompok</h2><p>Setiap karya membawa pesan penting untuk menggunakan teknologi secara sehat, aman, dan seimbang.</p></div>';}};
+    };
+    showModal('<div></div>',render);
+  }
+
+  function openMoralClosing(item) {
+    const morals=item.morals||[];let index=0;
+    const render=root=>{
+      root.innerHTML=`<div class="moral-stage"><span class="eyebrow">PESAN PENGUATAN ${index+1} DARI ${morals.length}</span><div class="moral-icon">${['🛡️','💡','⏱️','🤝','🌟'][index]||'🌟'}</div><h2>${esc(morals[index]||item.body)}</h2><p>Kemenangan sejati adalah mampu menjaga diri, membuat pilihan yang bertanggung jawab, dan berani meminta bantuan.</p><div class="modal-nav"><button class="secondary-action" id="moralPrev" ${index===0?'disabled':''}>← Sebelumnya</button><button class="primary-action" id="moralNext">${index===morals.length-1?'Tutup dengan Komitmen':'Pesan Berikutnya →'}</button></div></div>`;
+      $('#moralPrev',root).onclick=()=>{if(index>0){index--;render(root);}};
+      $('#moralNext',root).onclick=()=>{if(index<morals.length-1){index++;render(root);}else{$('#modalContent').innerHTML='<div class="celebrate"><div class="big-emoji">✋</div><span class="eyebrow">KOMITMEN KELAS</span><h2>“Saya memilih aman, seimbang, dan bertanggung jawab di dunia digital.”</h2><p>Ajak seluruh murid membaca kalimat komitmen bersama-sama.</p></div>';}};
+    };
+    showModal('<div></div>',render);
   }
 
   function openRegistration(after, preferredSessionId) {
@@ -241,8 +489,8 @@
     });
   }
 
-  function openHabitPoll() {
-    const items = ['Main gim sampai lupa waktu','Tidur terlalu malam karena gawai','Makan sambil menonton','Belajar sambil membuka terlalu banyak aktivitas'];
+  function openHabitPoll(item) {
+    const items = (item && item.statements) || ['Main gim sampai lupa waktu','Tidur terlalu malam karena gawai','Makan sambil menonton','Belajar sambil membuka terlalu banyak aktivitas'];
     showModal(`<span class="eyebrow">CEK KEBIASAAN</span><h2>Pilih yang pernah terjadi</h2><p>Jawaban hanya ditampilkan di perangkat ini dan tidak digunakan untuk mempermalukan peserta.</p><div class="check-list">${items.map((x,i)=>`<label><input type="checkbox" value="${i}"><span>${esc(x)}</span></label>`).join('')}</div><button class="primary-action" id="pollResult">Lihat Pesan</button>`, root => {
       $('#pollResult',root).onclick = () => {
         const n = $$('input:checked',root).length;
