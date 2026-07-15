@@ -146,16 +146,445 @@
     }
   ];
 
+
+  const curriculumPresentation = [
+  {
+    "content_id": "P-C1",
+    "session_id": "CURR-THU",
+    "display_order": 1,
+    "activity": "KEGIATAN 1",
+    "activity_title": "Mengenal Mata Pelajaran Wajib, Pilihan, Kokurikuler, dan Ekstrakurikuler",
+    "type": "presentation",
+    "template": "curriculum_opening",
+    "title": "Kurikulum adalah Peta Perjalanan Belajar",
+    "body": "Sesi ini membantu murid baru memahami peta belajar di SMP Negeri 38 Maluku Tengah: apa yang dipelajari, siapa yang mendampingi, kegiatan pengembangan diri yang tersedia, dan cara merencanakan perjalanan belajar.",
+    "duration_minutes": 2,
+    "icon": "🧭",
+    "accent": "violet",
+    "action": "none",
+    "action_label": "",
+    "media_url": "",
+    "is_active": true,
+    "route": [
+      {
+        "icon": "📚",
+        "title": "Kenali Kurikulum",
+        "text": "Mata pelajaran, guru pengampu, kokurikuler, dan ekstrakurikuler."
+      },
+      {
+        "icon": "🔥",
+        "title": "Temukan Motivasi",
+        "text": "Kenali alasan belajar dan buat tujuan pribadi."
+      },
+      {
+        "icon": "🛠️",
+        "title": "Pilih Strategi",
+        "text": "Gabungkan cara belajar sesuai tujuan dan materi."
+      },
+      {
+        "icon": "🧗",
+        "title": "Hadapi Tantangan",
+        "text": "Refleksi, minta bantuan, dan coba langkah berikutnya."
+      }
+    ],
+    "student_tasks": [
+      {
+        "content_id": "C-01",
+        "title": "Peta Belajar di SMP",
+        "type": "view"
+      }
+    ],
+    "teacher_message": "Buka Peta Belajar di SMP dan simak pengantar guru.",
+    "teacher_cue": "Sampaikan bahwa kurikulum bukan sekadar daftar pelajaran, melainkan keseluruhan pengalaman belajar dan pengembangan murid."
+  },
+  {
+    "content_id": "P-C2",
+    "session_id": "CURR-THU",
+    "display_order": 2,
+    "activity": "KEGIATAN 1",
+    "activity_title": "Mengenal Mata Pelajaran Wajib, Pilihan, Kokurikuler, dan Ekstrakurikuler",
+    "type": "presentation",
+    "template": "school_welcome",
+    "title": "Kenali SMP Negeri 38 Maluku Tengah",
+    "body": "Sekolah adalah lingkungan belajar bersama. Kepala sekolah memimpin pengelolaan sekolah, guru mendampingi proses belajar, dan setiap murid ikut menjaga suasana yang aman, tertib, ramah, serta saling menghargai.",
+    "duration_minutes": 2,
+    "icon": "🏫",
+    "accent": "blue",
+    "action": "school_directory",
+    "action_label": "Buka Profil Sekolah dan Direktori",
+    "media_url": "",
+    "is_active": true,
+    "principal": {
+      "name": "LINJIE C. PATTY, S.Pd., M.Si",
+      "role": "Kepala Sekolah"
+    },
+    "student_tasks": [
+      {
+        "content_id": "C-02",
+        "title": "Kenali Sekolah dan Kepala Sekolah",
+        "type": "view"
+      }
+    ],
+    "teacher_message": "Kenali sekolah dan kepala sekolah. Tetap di tahap ini sampai guru melanjutkan.",
+    "teacher_cue": "Perkenalkan kepala sekolah dengan hormat. Tekankan bahwa semua warga sekolah saling bekerja sama untuk mendukung perkembangan murid."
+  },
+  {
+    "content_id": "P-C3",
+    "session_id": "CURR-THU",
+    "display_order": 3,
+    "activity": "KEGIATAN 1",
+    "activity_title": "Mengenal Mata Pelajaran Wajib, Pilihan, Kokurikuler, dan Ekstrakurikuler",
+    "type": "presentation",
+    "template": "school_directory",
+    "title": "Mata Pelajaran dan Guru Pengampu",
+    "body": "Berdasarkan jadwal Semester Genap TP 2025/2026, sekolah memiliki dua belas kelompok mata pelajaran. Klik direktori untuk melihat guru pengampu setiap mata pelajaran dan jenjang kelas yang didampingi.",
+    "duration_minutes": 4,
+    "icon": "📚",
+    "accent": "cyan",
+    "action": "school_directory",
+    "action_label": "Tampilkan Direktori Lengkap",
+    "media_url": "",
+    "is_active": true,
+    "student_tasks": [
+      {
+        "content_id": "C-03",
+        "title": "Mata Pelajaran dan Guru Pengampu",
+        "type": "view"
+      }
+    ],
+    "teacher_message": "Buka direktori mata pelajaran di HP dan kenali guru pengampunya.",
+    "teacher_cue": "Tidak perlu membacakan seluruh nama satu per satu. Tampilkan berdasarkan mata pelajaran, lalu beri kesempatan murid bertanya tentang pelajaran yang belum mereka kenal."
+  },
+  {
+    "content_id": "P-C3Q",
+    "session_id": "CURR-THU",
+    "display_order": 4,
+    "activity": "KEGIATAN 1",
+    "activity_title": "Mengenal Mata Pelajaran Wajib, Pilihan, Kokurikuler, dan Ekstrakurikuler",
+    "type": "activity",
+    "template": "directory_quiz_bridge",
+    "title": "Tantangan Cepat: Kenal Mapel & Guru",
+    "body": "Sekarang saatnya memastikan kita sudah mengenal beberapa mata pelajaran, kepala sekolah, dan guru pengampu. Quiz ini singkat. Baca setiap soal dengan teliti, pilih jawaban, pelajari penguatannya, lalu tunggu arahan guru setelah selesai.",
+    "duration_minutes": 4,
+    "icon": "🧠",
+    "accent": "violet",
+    "action": "quiz:school_directory",
+    "action_label": "Simulasi Quiz Kenal Mapel & Guru",
+    "media_url": "",
+    "is_active": true,
+    "student_tasks": [
+      {
+        "content_id": "C-03Q",
+        "title": "Quiz Kenal Mata Pelajaran & Guru",
+        "type": "quiz"
+      }
+    ],
+    "teacher_message": "Kerjakan Quiz Kenal Mata Pelajaran & Guru sekarang. Setelah selesai, tetap tunggu arahan guru.",
+    "teacher_cue": "Buka quiz pada HP siswa melalui panel Sinkron Kelas. Pantau jumlah yang membuka dan selesai. Setelah quiz, beri penguatan bahwa daftar guru mengikuti jadwal referensi dan dapat diperbarui bila ada pembagian tugas baru."
+  },
+  {
+    "content_id": "P-C4",
+    "session_id": "CURR-THU",
+    "display_order": 5,
+    "activity": "KEGIATAN 1",
+    "activity_title": "Mengenal Mata Pelajaran Wajib, Pilihan, Kokurikuler, dan Ekstrakurikuler",
+    "type": "activity",
+    "template": "curriculum_structure",
+    "title": "Wajib, Pilihan, Kokurikuler, dan Ekstrakurikuler",
+    "body": "Mata pelajaran wajib membangun kompetensi dasar. Mata pelajaran pilihan—bila tersedia—memberi ruang sesuai minat. Kokurikuler memperkuat pembelajaran melalui pengalaman nyata. Ekstrakurikuler membantu mengembangkan minat, bakat, kepemimpinan, kesehatan, dan kebersamaan.",
+    "duration_minutes": 2,
+    "icon": "🗺️",
+    "accent": "green",
+    "action": "quiz:curriculum_map",
+    "action_label": "Simulasi Quiz Peta Kurikulum",
+    "media_url": "",
+    "is_active": true,
+    "examples": [
+      {
+        "label": "Mata Pelajaran",
+        "items": "Agama, Pancasila, Bahasa Indonesia, Matematika, IPA, IPS, Bahasa Inggris, Seni & Prakarya, PJOK, Informatika, BK, Koding/Mulok"
+      },
+      {
+        "label": "Penguatan Jadwal",
+        "items": "Literasi, Numerasi, Kokurikuler, Pembinaan Rohani"
+      },
+      {
+        "label": "Pengembangan Diri",
+        "items": "Pramuka dan kegiatan sekolah lain sesuai program resmi"
+      }
+    ],
+    "student_tasks": [
+      {
+        "content_id": "C-04",
+        "title": "Quiz Peta Kurikulum",
+        "type": "quiz"
+      }
+    ],
+    "teacher_message": "Kerjakan Quiz Peta Kurikulum sekarang. Setelah selesai, tunggu arahan guru.",
+    "teacher_cue": "Buka quiz pada HP siswa melalui panel Sinkron Kelas. Pantau jumlah siswa yang membuka dan menyelesaikan."
+  },
+  {
+    "content_id": "P-C5",
+    "session_id": "CURR-THU",
+    "display_order": 6,
+    "activity": "KEGIATAN 2",
+    "activity_title": "Mengenal Diri dan Membangkitkan Motivasi Murid",
+    "type": "discussion",
+    "template": "motivation_compass",
+    "title": "Motivasi dari Dalam dan dari Luar",
+    "body": "Motivasi intrinsik berasal dari dalam diri, seperti rasa ingin tahu, minat, makna, dan keinginan berkembang. Motivasi ekstrinsik berasal dari luar, seperti nilai, hadiah, pujian, atau kompetisi. Keduanya dapat membantu, tetapi tujuan pribadi yang bermakna membuat semangat lebih tahan lama.",
+    "duration_minutes": 4,
+    "icon": "🔥",
+    "accent": "orange",
+    "action": "guided_curriculum_prompts",
+    "action_label": "Mulai Tanya Jawab Motivasi",
+    "media_url": "",
+    "is_active": true,
+    "prompts": [
+      {
+        "id": "MOT-ORAL-01",
+        "question": "Apa perbedaan motivasi intrinsik dan motivasi ekstrinsik?",
+        "answer": "Motivasi intrinsik muncul dari dalam diri, seperti minat dan rasa ingin tahu. Motivasi ekstrinsik datang dari luar, seperti nilai, hadiah, pujian, atau kompetisi."
+      },
+      {
+        "id": "MOT-ORAL-02",
+        "question": "Berikan contoh kegiatan belajar yang kamu lakukan karena benar-benar tertarik.",
+        "answer": "Jawaban dapat berupa membaca, berlatih, menulis, bereksperimen, atau mempelajari sesuatu karena penasaran dan ingin berkembang, bukan semata-mata karena hadiah."
+      },
+      {
+        "id": "MOT-ORAL-03",
+        "question": "Bagaimana cara membuat semangat belajar lebih bertahan lama?",
+        "answer": "Hubungkan belajar dengan tujuan pribadi yang bermakna, pilih langkah kecil yang realistis, pantau kemajuan, dan minta dukungan ketika diperlukan."
+      }
+    ],
+    "student_tasks": [
+      {
+        "content_id": "C-05",
+        "title": "Detektif Motivasi",
+        "type": "quiz"
+      }
+    ],
+    "teacher_message": "Kerjakan Detektif Motivasi setelah tanya jawab kelas selesai.",
+    "teacher_cue": "Pilih 2–3 murid untuk memberi contoh. Nilai kualitas alasan melalui tombol Cukup, Baik, atau Baik Sekali."
+  },
+  {
+    "content_id": "P-C6",
+    "session_id": "CURR-THU",
+    "display_order": 7,
+    "activity": "KEGIATAN 2",
+    "activity_title": "Mengenal Diri dan Membangkitkan Motivasi Murid",
+    "type": "activity",
+    "template": "goal_model",
+    "title": "Susun Tujuan Belajar Pribadi",
+    "body": "Tujuan yang baik tidak harus besar. Tujuan perlu jelas, realistis, dapat dilakukan, dan dapat diperiksa kembali. Gunakan pola: apa yang ingin diperbaiki, mengapa penting, dan langkah kecil apa yang akan dilakukan.",
+    "duration_minutes": 6,
+    "icon": "🎯",
+    "accent": "pink",
+    "action": "goal_builder",
+    "action_label": "Buat Contoh Kartu Tujuan",
+    "media_url": "",
+    "is_active": true,
+    "student_tasks": [
+      {
+        "content_id": "C-06",
+        "title": "Kartu Tujuan Belajar",
+        "type": "activity"
+      }
+    ],
+    "teacher_message": "Buat Kartu Tujuan Belajar pribadi. Simpan atau tuliskan kembali hasilnya.",
+    "teacher_cue": "Berikan contoh tujuan yang terukur dan realistis. Hindari tujuan seperti “harus sempurna”."
+  },
+  {
+    "content_id": "P-C7",
+    "session_id": "CURR-THU",
+    "display_order": 8,
+    "activity": "KEGIATAN 3",
+    "activity_title": "Teknik dan Strategi Belajar Efektif",
+    "type": "activity",
+    "template": "learning_preferences",
+    "title": "Preferensi Belajar adalah Petunjuk, Bukan Label",
+    "body": "Murid dapat terbantu dengan mendengar, melihat, membaca, menulis, berdiskusi, atau mencoba langsung. Jawaban tiga pertanyaan hanya membantu mengenali kecenderungan awal. Murid tidak boleh dikelompokkan atau dibatasi hanya berdasarkan satu hasil.",
+    "duration_minutes": 4,
+    "icon": "🧠",
+    "accent": "violet",
+    "action": "preference_quiz",
+    "action_label": "Simulasi Cek Preferensi",
+    "media_url": "",
+    "is_active": true,
+    "student_tasks": [
+      {
+        "content_id": "C-07",
+        "title": "Cek Preferensi Belajar",
+        "type": "activity"
+      }
+    ],
+    "teacher_message": "Jawab tiga pertanyaan preferensi belajar. Hasilnya bukan label tetap.",
+    "teacher_cue": "Tegaskan catatan pada materi: hasil tidak dapat menjadi satu-satunya acuan pengelompokan gaya belajar."
+  },
+  {
+    "content_id": "P-C8",
+    "session_id": "CURR-THU",
+    "display_order": 9,
+    "activity": "KEGIATAN 3",
+    "activity_title": "Teknik dan Strategi Belajar Efektif",
+    "type": "activity",
+    "template": "study_strategy_lab",
+    "title": "Laboratorium Strategi Belajar",
+    "body": "Strategi belajar harus disesuaikan dengan tujuan dan materi. Murid dapat menggabungkan penjelasan lisan, gambar, catatan, diskusi, latihan dari ingatan, praktik langsung, pengulangan berkala, dan pengaturan lingkungan belajar.",
+    "duration_minutes": 11,
+    "icon": "🛠️",
+    "accent": "cyan",
+    "action": "quiz:study_strategy",
+    "action_label": "Simulasi Tantangan Strategi",
+    "media_url": "",
+    "is_active": true,
+    "strategies": [
+      {
+        "icon": "🧩",
+        "title": "Pecah Tugas",
+        "text": "Ubah tugas besar menjadi langkah kecil dan mulai dari langkah pertama."
+      },
+      {
+        "icon": "🧠",
+        "title": "Ambil dari Ingatan",
+        "text": "Tutup buku lalu jelaskan inti materi tanpa melihat."
+      },
+      {
+        "icon": "📆",
+        "title": "Ulang Berkala",
+        "text": "Belajar kembali pada hari yang berbeda, bukan sekaligus."
+      },
+      {
+        "icon": "🖼️",
+        "title": "Buat Hubungan",
+        "text": "Gunakan gambar, contoh, peta konsep, atau pengalaman nyata."
+      },
+      {
+        "icon": "❓",
+        "title": "Bertanya",
+        "text": "Tandai bagian yang belum dipahami dan cari bantuan."
+      },
+      {
+        "icon": "🔕",
+        "title": "Kurangi Gangguan",
+        "text": "Atur tempat, waktu, dan perangkat agar fokus lebih mudah."
+      }
+    ],
+    "student_tasks": [
+      {
+        "content_id": "C-08",
+        "title": "Tantangan Strategi Belajar",
+        "type": "quiz"
+      }
+    ],
+    "teacher_message": "Pelajari strategi belajar lalu kerjakan tantangan pada HP.",
+    "teacher_cue": "Setelah quiz, minta beberapa murid menyebutkan strategi yang akan mereka coba pada mata pelajaran tertentu."
+  },
+  {
+    "content_id": "P-C9",
+    "session_id": "CURR-THU",
+    "display_order": 10,
+    "activity": "KEGIATAN 4",
+    "activity_title": "Mengatasi Tantangan Belajar dan Refleksi",
+    "type": "scenario",
+    "template": "challenge_clinic",
+    "title": "Klinik Tantangan Belajar",
+    "body": "Tantangan belajar dapat dihadapi dengan keterampilan berpikir kritis dan pemecahan masalah. Jangan langsung memberi label “saya tidak mampu”. Kenali masalahnya, pilih langkah, coba, minta bantuan, lalu evaluasi.",
+    "duration_minutes": 5,
+    "icon": "🧗",
+    "accent": "red",
+    "action": "quiz:curriculum_challenge",
+    "action_label": "Simulasi Pecahkan Skenario",
+    "media_url": "",
+    "is_active": true,
+    "student_tasks": [
+      {
+        "content_id": "C-09",
+        "title": "Pecahkan Skenario Belajar",
+        "type": "quiz"
+      }
+    ],
+    "teacher_message": "Pecahkan skenario tantangan belajar dan pilih tindakan yang paling bertanggung jawab.",
+    "teacher_cue": "Tekankan pola pikir berkembang: kegagalan adalah informasi untuk memperbaiki strategi, bukan akhir kemampuan."
+  },
+  {
+    "content_id": "P-C10",
+    "session_id": "CURR-THU",
+    "display_order": 11,
+    "activity": "KEGIATAN 4",
+    "activity_title": "Mengatasi Tantangan Belajar dan Refleksi",
+    "type": "reflection",
+    "template": "reflection_3m1l",
+    "title": "Refleksi 3M + 1L",
+    "body": "Ajak murid mengevaluasi diri secara jujur: apa yang dipahami, apa yang masih mengganjal, bagian yang menarik atau sulit, dan langkah selanjutnya. Refleksi bukan mencari kesalahan, melainkan menentukan perbaikan.",
+    "duration_minutes": 4,
+    "icon": "🪞",
+    "accent": "green",
+    "action": "reflection",
+    "action_label": "Tampilkan Pertanyaan Refleksi",
+    "media_url": "",
+    "is_active": true,
+    "student_tasks": [
+      {
+        "content_id": "C-10",
+        "title": "Refleksi 3M + 1L",
+        "type": "reflection"
+      }
+    ],
+    "teacher_message": "Isi Refleksi 3M + 1L. Jawaban membantu kamu menentukan langkah belajar berikutnya.",
+    "teacher_cue": "Murid dengan HP mengirim refleksi melalui aplikasi. Murid tanpa HP dapat menulis pada kertas HVS atau dicatat guru."
+  },
+  {
+    "content_id": "P-C11",
+    "session_id": "CURR-THU",
+    "display_order": 12,
+    "activity": "KEGIATAN 4 · PENUTUP",
+    "activity_title": "Mengatasi Tantangan Belajar dan Refleksi",
+    "type": "closing",
+    "template": "curriculum_closing",
+    "title": "Saya Siap Menjadi Pelajar Tangguh",
+    "body": "Belajar adalah perjalanan. Murid tidak harus langsung mahir, tetapi perlu berani mencoba, jujur mengevaluasi diri, menggunakan strategi yang tepat, meminta bantuan, dan terus memperbaiki langkah.",
+    "duration_minutes": 1,
+    "icon": "🌟",
+    "accent": "orange",
+    "action": "curriculum_closing",
+    "action_label": "Tampilkan Komitmen Pelajar",
+    "media_url": "",
+    "is_active": true,
+    "student_tasks": [
+      {
+        "content_id": "C-11",
+        "title": "Komitmen Pelajar Tangguh",
+        "type": "view"
+      }
+    ],
+    "teacher_message": "Baca pesan penutup dan komitmen pelajar tangguh bersama-sama.",
+    "morals": [
+      "Kurikulum adalah peta, tetapi muridlah yang menjalani perjalanannya.",
+      "Motivasi yang kuat tumbuh ketika belajar mempunyai tujuan dan makna.",
+      "Tidak ada satu cara belajar yang paling benar untuk semua materi.",
+      "Kesulitan adalah tanda untuk mencoba strategi lain dan meminta bantuan.",
+      "Kemajuan kecil yang dilakukan konsisten akan menghasilkan perubahan besar."
+    ]
+  }
+];
+
   window.MPLS_PRESENTATION_DATA = Object.freeze({
-    version:'1.7.0',
+    version:'1.10.0',
     sessions:{
       'DIGI-WED':{
         session_id:'DIGI-WED', day_label:'Rabu', title:'Literasi Digital',
         subtitle:'Pencegahan Judi Online dan Kampanye 3S', duration_minutes:60,
         icon:'🛡️', accent:'cyan', display_order:1, is_active:true,
         objectives:'Mengenali bahaya judi online, berani mencari bantuan, dan menerapkan Screen Time, Screen Zone, serta Screen Break.'
+      },
+      'CURR-THU':{
+        session_id:'CURR-THU', day_label:'Kamis', title:'Pengenalan Kurikulum',
+        subtitle:'Peta Belajar, Motivasi, Strategi, dan Ketangguhan', duration_minutes:45,
+        icon:'🧭', accent:'violet', display_order:2, is_active:true,
+        objectives:'Mengenal kurikulum dan warga sekolah, membangun motivasi, memilih strategi belajar, serta menghadapi tantangan secara mandiri dan bertanggung jawab.'
       }
     },
-    content:{'DIGI-WED':digitalPresentation}
+    content:{'DIGI-WED':digitalPresentation,'CURR-THU':curriculumPresentation}
   });
 })();

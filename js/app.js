@@ -312,6 +312,40 @@
     if (item.template === 'group_presentations') {
       return `${bodyHTML(item.body)}<div class="presentation-prompts">${(item.presentation_prompts||[]).map((x,i)=>`<article><span>${i+1}</span><p>${esc(x)}</p></article>`).join('')}</div><div class="feedback-formula"><strong>Umpan balik kelas:</strong> “Satu kekuatan” + “Satu langkah lebih baik”.</div>`;
     }
+    if (item.template === 'curriculum_opening') {
+      return `${bodyHTML(item.body)}<div class="curriculum-route-grid">${(item.route||[]).map((x,i)=>`<article><span>${esc(x.icon||'✓')}</span><small>POS ${i+1}</small><h3>${esc(x.title)}</h3><p>${esc(x.text)}</p></article>`).join('')}</div>${cue}`;
+    }
+    if (item.template === 'school_welcome') {
+      const principal=(item.principal&&item.principal.name)||((schoolDirectoryRows().find(x=>String(x.kind)==='principal')||{}).person_name)||'Kepala Sekolah';
+      return `${bodyHTML(item.body)}<div class="principal-feature"><div class="principal-avatar">🏫</div><div><small>KEPALA SEKOLAH</small><h3>${esc(principal)}</h3><p>Memimpin sekolah bersama guru dan tenaga kependidikan untuk membangun lingkungan belajar yang aman, tertib, ramah, dan bertumbuh.</p></div></div>${cue}`;
+    }
+    if (item.template === 'school_directory') {
+      return `${bodyHTML(item.body)}${renderSchoolDirectoryPreview()}${cue}`;
+    }
+    if (item.template === 'curriculum_structure') {
+      return `${bodyHTML(item.body)}<div class="curriculum-structure-grid"><article><span>📘</span><h3>Mata Pelajaran</h3><p>Kompetensi dan pengetahuan utama yang dipelajari secara terstruktur.</p></article><article><span>🧪</span><h3>Kokurikuler</h3><p>Pengalaman yang memperkuat pembelajaran melalui praktik dan konteks nyata.</p></article><article><span>🏕️</span><h3>Ekstrakurikuler</h3><p>Ruang mengembangkan minat, bakat, kepemimpinan, kesehatan, dan kebersamaan.</p></article><article><span>🌱</span><h3>Pembiasaan</h3><p>Literasi, numerasi, pembinaan rohani, dan kebiasaan positif sekolah.</p></article></div><div class="school-example-list">${(item.examples||[]).map(x=>`<article><strong>${esc(x.label)}</strong><p>${esc(x.items)}</p></article>`).join('')}</div>${cue}`;
+    }
+    if (item.template === 'motivation_compass') {
+      return `${bodyHTML(item.body)}<div class="motivation-grid"><article class="intrinsic"><span>🌱</span><small>DARI DALAM DIRI</small><h3>Motivasi Intrinsik</h3><p>Rasa ingin tahu, minat, makna, cita-cita, dan keinginan berkembang.</p></article><article class="extrinsic"><span>🏅</span><small>DARI LUAR DIRI</small><h3>Motivasi Ekstrinsik</h3><p>Nilai, hadiah, pujian, target, kompetisi, dan dukungan orang lain.</p></article></div><div class="key-message"><strong>Penguatan:</strong> Motivasi dari luar dapat menjadi awal, tetapi tujuan pribadi membuat semangat lebih tahan lama.</div>${cue}`;
+    }
+    if (item.template === 'goal_model') {
+      return `${bodyHTML(item.body)}<div class="goal-model-card"><small>CONTOH TUJUAN YANG JELAS</small><p>“Selama dua minggu, saya akan berlatih <strong>5 soal Matematika</strong> setiap sore, menandai soal yang sulit, lalu bertanya kepada guru atau teman.”</p><div><span>Jelas</span><span>Realistis</span><span>Ada waktu</span><span>Bisa dipantau</span></div></div>${cue}`;
+    }
+    if (item.template === 'learning_preferences') {
+      return `${bodyHTML(item.body)}<div class="preference-cards"><article><span>👂</span><h3>Mendengar & Berdiskusi</h3><p>Penjelasan lisan, membaca pelan, tanya jawab, dan diskusi.</p></article><article><span>👀</span><h3>Melihat & Menata</h3><p>Gambar, diagram, video, teks, warna, dan poin penting.</p></article><article><span>🖐️</span><h3>Mencoba & Membuat</h3><p>Praktik, eksperimen, simulasi, gerak, dan menulis dengan tangan.</p></article></div><div class="note"><strong>Penting:</strong> hasil cek preferensi bukan label kecerdasan dan bukan dasar tunggal untuk mengelompokkan murid.</div>${cue}`;
+    }
+    if (item.template === 'study_strategy_lab') {
+      return `${bodyHTML(item.body)}<div class="strategy-lab-grid">${(item.strategies||[]).map(x=>`<article><span>${esc(x.icon)}</span><h3>${esc(x.title)}</h3><p>${esc(x.text)}</p></article>`).join('')}</div>${cue}`;
+    }
+    if (item.template === 'challenge_clinic') {
+      return `${bodyHTML(item.body)}<div class="challenge-steps"><article><span>1</span><strong>Kenali</strong><small>Bagian mana yang sebenarnya sulit?</small></article><article><span>2</span><strong>Pilih</strong><small>Strategi atau bantuan apa yang dapat dicoba?</small></article><article><span>3</span><strong>Coba</strong><small>Lakukan satu langkah kecil.</small></article><article><span>4</span><strong>Evaluasi</strong><small>Apa hasilnya dan apa langkah berikutnya?</small></article></div>${cue}`;
+    }
+    if (item.template === 'reflection_3m1l') {
+      return `${bodyHTML(item.body)}<div class="reflection-3m1l"><article><span>M1</span><strong>Mengerti</strong><p>Apa yang sudah saya pahami?</p></article><article><span>M2</span><strong>Mengganjal</strong><p>Apa yang masih membingungkan?</p></article><article><span>M3</span><strong>Menarik</strong><p>Bagian mana yang menarik atau sulit?</p></article><article><span>L</span><strong>Langkah</strong><p>Apa rencana kecil selanjutnya?</p></article></div>${cue}`;
+    }
+    if (item.template === 'curriculum_closing') {
+      return `${bodyHTML(item.body)}<div class="moral-grid curriculum-morals">${(item.morals||[]).map((x,i)=>`<article><span>${['🧭','🔥','🛠️','🤝','🌟'][i]||'✓'}</span><p>${esc(x)}</p></article>`).join('')}</div>`;
+    }
     if (item.template === 'moral_closing') {
       return `${bodyHTML(item.body)}<div class="moral-grid">${(item.morals||[]).map((x,i)=>`<article><span>${['🛡️','💡','⏱️','🤝','🌟'][i]||'✓'}</span><p>${esc(x)}</p></article>`).join('')}</div>`;
     }
@@ -460,6 +494,8 @@
     else if (action === 'open_film') openFilm(item);
     else if (action === 'guided_prompts') openGuidedPrompts(item);
     else if (action === 'guided_discussion') openGuidedDiscussion(item);
+    else if (action === 'guided_curriculum_prompts') openCurriculumPrompts(item);
+    else if (action === 'school_directory') openSchoolDirectory();
     else if (action === 'prompt_picker') openPromptPicker(item.body);
     else if (action === 'habit_poll') openHabitPoll(item);
     else if (action === 'open_3s_material') openThreeSMaterial(item);
@@ -467,6 +503,7 @@
     else if (action === 'poster_workshop') openPosterWorkshop(item);
     else if (action === 'group_presentations') openGroupPresentations(item);
     else if (action === 'moral_closing') openMoralClosing(item);
+    else if (action === 'curriculum_closing') openCurriculumClosing(item);
     else if (action === 'three_s_cards') openThreeSCards(item.media_url);
     else if (action === 'three_s_mission') openThreeSMission();
     else if (action === 'rubric') openRubric();
@@ -501,7 +538,8 @@
   }
 
   function openAssessedPromptFlow(item, sourceLabel, closingHtml) {
-    const prompts=(item.prompts||[]).map((x,i)=>normalizePrompt(x,i,sourceLabel==='Diskusi Film'?'REF':'PEM'));
+    const promptPrefix=sourceLabel==='Diskusi Film'?'REF':sourceLabel==='Diskusi Motivasi'?'MOT':'PEM';
+    const prompts=(item.prompts||[]).map((x,i)=>normalizePrompt(x,i,promptPrefix));
     let index=0, revealed=false, studentName='';
     const render=root=>{
       const prompt=prompts[index];
@@ -528,6 +566,49 @@
   function openGuidedDiscussion(item) {
     openAssessedPromptFlow(item,'Diskusi Film',`<div class="celebrate"><div class="big-emoji">🤝</div><span class="eyebrow">PESAN KUNCI</span><h2>Berani mencari bantuan</h2><p>${esc(item.key_message||'')}</p></div>`);
   }
+
+  function openCurriculumPrompts(item) {
+    openAssessedPromptFlow(item,'Diskusi Motivasi','<div class="celebrate"><div class="big-emoji">🔥</div><h2>Semangat yang kuat mempunyai arah</h2><p>Hubungkan alasan belajar dengan tujuan pribadi, lalu mulai dari satu langkah kecil yang realistis.</p></div>');
+  }
+
+  function schoolDirectoryRows() {
+    const rows=(state.data&&state.data.schoolDirectory)||[];
+    return Array.isArray(rows)?rows.filter(x=>String(x.is_active==null?x.isActive:x.is_active)!=='false'):[];
+  }
+
+  function schoolDirectoryModel() {
+    const rows=schoolDirectoryRows();
+    const principal=rows.find(x=>String(x.kind||'')==='principal')||{
+      person_name:(state.data&&state.data.config&&state.data.config.principalName)||'LINJIE C. PATTY, S.Pd., M.Si',
+      role:'Kepala Sekolah',icon:'🏫'
+    };
+    const groups={};
+    rows.filter(x=>String(x.kind||'')==='subject_teacher').forEach(r=>{
+      const code=String(r.subject_code||r.subjectCode||'');
+      if(!groups[code])groups[code]={code,name:String(r.subject_name||r.subjectName||''),icon:String(r.icon||'📘'),teachers:[],order:Number(r.display_order||r.displayOrder||99)};
+      groups[code].teachers.push({
+        name:String(r.person_name||r.personName||''),
+        grades:String(r.grade_levels||r.gradeLevels||''),
+        classes:String(r.classes||'')
+      });
+    });
+    const subjects=Object.values(groups).sort((a,b)=>a.order-b.order||a.code.localeCompare(b.code));
+    return {principal,subjects};
+  }
+
+  function renderSchoolDirectoryPreview() {
+    const model=schoolDirectoryModel();
+    const subjects=model.subjects.slice(0,6);
+    return `<div class="directory-preview"><div class="directory-principal-mini"><span>${esc(model.principal.icon||'🏫')}</span><div><small>KEPALA SEKOLAH</small><strong>${esc(model.principal.person_name||model.principal.personName||'')}</strong></div></div><div class="directory-subject-preview">${subjects.map(s=>`<article><span>${esc(s.icon)}</span><div><strong>${esc(s.name)}</strong><small>${s.teachers.length} guru pengampu</small></div></article>`).join('')}</div><p class="directory-more">Terdapat ${model.subjects.length} mata pelajaran pada direktori. Klik tombol untuk melihat seluruh guru pengampu.</p></div>`;
+  }
+
+  function openSchoolDirectory() {
+    const model=schoolDirectoryModel();
+    const principalName=String(model.principal.person_name||model.principal.personName||'LINJIE C. PATTY, S.Pd., M.Si');
+    const subjectCards=model.subjects.map((s,i)=>`<details class="subject-directory-card" ${i===0?'open':''}><summary><span>${esc(s.icon)}</span><div><strong>${esc(s.name)}</strong><small>${s.teachers.length} guru pengampu</small></div><b>+</b></summary><div class="subject-teacher-list">${s.teachers.map(t=>`<article><div class="teacher-initial">${esc((t.name.match(/[A-Za-z]/)||['G'])[0].toUpperCase())}</div><div><strong>${esc(t.name)}</strong><small>${t.grades?('Kelas '+esc(t.grades)):'Guru pengampu'}</small></div></article>`).join('')}</div></details>`).join('');
+    showModal(`<span class="eyebrow">DIREKTORI SEKOLAH · SEMESTER GENAP TP 2025/2026</span><h2>Kenali Mata Pelajaran dan Guru Pengampu</h2><div class="principal-directory-card"><div class="principal-avatar">🏫</div><div><small>KEPALA SEKOLAH</small><h3>${esc(principalName)}</h3><p>Memimpin SMP Negeri 38 Maluku Tengah bersama seluruh warga sekolah.</p></div></div><div class="directory-note"><strong>12 mata pelajaran:</strong> Pendidikan Agama dan BP, Pendidikan Pancasila, Bahasa Indonesia, Matematika, IPA, IPS, Bahasa Inggris, Seni & Prakarya, PJOK, Informatika, Bimbingan Konseling, dan Koding/Mulok.</div><div class="subject-directory-list">${subjectCards||'<p>Data guru belum tersedia. Jalankan setup database versi terbaru.</p>'}</div><p class="note"><strong>Catatan:</strong> penugasan guru mengikuti jadwal Semester Genap TP 2025/2026 dan dapat diperbarui dari Google Sheet SCHOOL_DIRECTORY.</p>`);
+  }
+
 
   function openThreeSMaterial(item) {
     showModal(`<span class="eyebrow">MATERI PRINSIP 3S</span><h2>Screen Time, Screen Zone, dan Screen Break</h2>
@@ -695,6 +776,18 @@
       root.innerHTML=`<div class="moral-stage"><span class="eyebrow">PESAN PENGUATAN ${index+1} DARI ${morals.length}</span><div class="moral-icon">${['🛡️','💡','⏱️','🤝','🌟'][index]||'🌟'}</div><h2>${esc(morals[index]||item.body)}</h2><p>Kemenangan sejati adalah mampu menjaga diri, membuat pilihan yang bertanggung jawab, dan berani meminta bantuan.</p><div class="modal-nav"><button class="secondary-action" id="moralPrev" ${index===0?'disabled':''}>← Sebelumnya</button><button class="primary-action" id="moralNext">${index===morals.length-1?'Tutup dengan Komitmen':'Pesan Berikutnya →'}</button></div></div>`;
       $('#moralPrev',root).onclick=()=>{if(index>0){index--;render(root);}};
       $('#moralNext',root).onclick=()=>{if(index<morals.length-1){index++;render(root);}else{$('#modalContent').innerHTML='<div class="celebrate"><div class="big-emoji">✋</div><span class="eyebrow">KOMITMEN KELAS</span><h2>“Saya memilih aman, seimbang, dan bertanggung jawab di dunia digital.”</h2><p>Ajak seluruh murid membaca kalimat komitmen bersama-sama.</p></div>';}};
+    };
+    showModal('<div></div>',render);
+  }
+
+
+  function openCurriculumClosing(item) {
+    const morals=item.morals||[];let index=0;
+    const icons=['🧭','🔥','🛠️','🤝','🌟'];
+    const render=root=>{
+      root.innerHTML=`<div class="moral-stage curriculum-closing-stage"><span class="eyebrow">PESAN PENGUATAN ${index+1} DARI ${morals.length}</span><div class="moral-icon">${icons[index]||'🌟'}</div><h2>${esc(morals[index]||item.body)}</h2><p>Belajar adalah perjalanan. Kita bertumbuh ketika berani mencoba, mengevaluasi, meminta bantuan, dan memperbaiki langkah.</p><div class="modal-nav"><button class="secondary-action" id="currMoralPrev" ${index===0?'disabled':''}>← Sebelumnya</button><button class="primary-action" id="currMoralNext">${index===morals.length-1?'Baca Komitmen Bersama':'Pesan Berikutnya →'}</button></div></div>`;
+      $('#currMoralPrev',root).onclick=()=>{if(index>0){index--;render(root);}};
+      $('#currMoralNext',root).onclick=()=>{if(index<morals.length-1){index++;render(root);}else{$('#modalContent').innerHTML='<div class="celebrate"><div class="big-emoji">✋</div><span class="eyebrow">KOMITMEN PELAJAR TANGGUH</span><h2>“Saya siap belajar, mencoba, bertanya, dan memperbaiki langkah.”</h2><p>Ajak seluruh murid membaca komitmen ini bersama-sama.</p></div>';}};
     };
     showModal('<div></div>',render);
   }
