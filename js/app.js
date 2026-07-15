@@ -323,7 +323,20 @@
       return `${bodyHTML(item.body)}${renderSchoolDirectoryPreview()}${cue}`;
     }
     if (item.template === 'curriculum_structure') {
-      return `${bodyHTML(item.body)}<div class="curriculum-structure-grid"><article><span>📘</span><h3>Mata Pelajaran</h3><p>Kompetensi dan pengetahuan utama yang dipelajari secara terstruktur.</p></article><article><span>🧪</span><h3>Kokurikuler</h3><p>Pengalaman yang memperkuat pembelajaran melalui praktik dan konteks nyata.</p></article><article><span>🏕️</span><h3>Ekstrakurikuler</h3><p>Ruang mengembangkan minat, bakat, kepemimpinan, kesehatan, dan kebersamaan.</p></article><article><span>🌱</span><h3>Pembiasaan</h3><p>Literasi, numerasi, pembinaan rohani, dan kebiasaan positif sekolah.</p></article></div><div class="school-example-list">${(item.examples||[]).map(x=>`<article><strong>${esc(x.label)}</strong><p>${esc(x.items)}</p></article>`).join('')}</div>${cue}`;
+      const domains=(item.domains||[
+        {icon:'📘',title:'Intrakurikuler',text:'Pembelajaran terjadwal untuk mencapai tujuan mata pelajaran.',purpose:'Membangun kompetensi dasar.'},
+        {icon:'🧪',title:'Kokurikuler',text:'Proyek yang memperkuat dan menerapkan pembelajaran.',purpose:'Menghubungkan pelajaran dengan konteks nyata.'},
+        {icon:'🏕️',title:'Ekstrakurikuler',text:'Kegiatan di luar jam pelajaran untuk minat dan bakat.',purpose:'Mengembangkan karakter, kesehatan, kepemimpinan, dan prestasi.'}
+      ]);
+      const mandatory=item.mandatory_subjects||[], elective=item.elective_subjects||[];
+      return `${bodyHTML(item.body)}
+        <div class="curriculum-structure-grid official-three">${domains.map(x=>`<article><span>${esc(x.icon||'✓')}</span><h3>${esc(x.title)}</h3><p>${esc(x.text)}</p>${x.purpose?`<small><strong>Tujuan:</strong> ${esc(x.purpose)}</small>`:''}</article>`).join('')}</div>
+        <div class="subject-track-grid">
+          <article class="subject-track-card mandatory"><span>WAJIB · ${mandatory.length}</span><h3>Mata Pelajaran Wajib</h3><p>Diikuti seluruh murid sesuai struktur sekolah.</p><ul>${mandatory.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></article>
+          <article class="subject-track-card elective"><span>PILIHAN · ${elective.length}</span><h3>Mata Pelajaran Pilihan</h3><p>Pelaksanaannya mengikuti program dan jadwal sekolah.</p><ul>${elective.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></article>
+        </div>
+        ${item.official_note?`<div class="official-source-note"><strong>Catatan penting:</strong> ${esc(item.official_note)}</div>`:''}
+        <div class="school-example-list">${(item.examples||[]).map(x=>`<article><strong>${esc(x.label)}</strong><p>${esc(x.items)}</p></article>`).join('')}</div>${cue}`;
     }
     if (item.template === 'motivation_compass') {
       return `${bodyHTML(item.body)}<div class="motivation-grid"><article class="intrinsic"><span>🌱</span><small>DARI DALAM DIRI</small><h3>Motivasi Intrinsik</h3><p>Rasa ingin tahu, minat, makna, cita-cita, dan keinginan berkembang.</p></article><article class="extrinsic"><span>🏅</span><small>DARI LUAR DIRI</small><h3>Motivasi Ekstrinsik</h3><p>Nilai, hadiah, pujian, target, kompetisi, dan dukungan orang lain.</p></article></div><div class="key-message"><strong>Penguatan:</strong> Motivasi dari luar dapat menjadi awal, tetapi tujuan pribadi membuat semangat lebih tahan lama.</div>${cue}`;
@@ -579,7 +592,7 @@
   function schoolDirectoryModel() {
     const rows=schoolDirectoryRows();
     const principal=rows.find(x=>String(x.kind||'')==='principal')||{
-      person_name:(state.data&&state.data.config&&state.data.config.principalName)||'LINJIE C. PATTY, S.Pd., M.Si',
+      person_name:(state.data&&state.data.config&&state.data.config.principalName)||'LINTJE C. PATTY, S.Pd.,M.Si',
       role:'Kepala Sekolah',icon:'🏫'
     };
     const groups={};
@@ -604,9 +617,10 @@
 
   function openSchoolDirectory() {
     const model=schoolDirectoryModel();
-    const principalName=String(model.principal.person_name||model.principal.personName||'LINJIE C. PATTY, S.Pd., M.Si');
-    const subjectCards=model.subjects.map((s,i)=>`<details class="subject-directory-card" ${i===0?'open':''}><summary><span>${esc(s.icon)}</span><div><strong>${esc(s.name)}</strong><small>${s.teachers.length} guru pengampu</small></div><b>+</b></summary><div class="subject-teacher-list">${s.teachers.map(t=>`<article><div class="teacher-initial">${esc((t.name.match(/[A-Za-z]/)||['G'])[0].toUpperCase())}</div><div><strong>${esc(t.name)}</strong><small>${t.grades?('Kelas '+esc(t.grades)):'Guru pengampu'}</small></div></article>`).join('')}</div></details>`).join('');
-    showModal(`<span class="eyebrow">DIREKTORI SEKOLAH · SEMESTER GENAP TP 2025/2026</span><h2>Kenali Mata Pelajaran dan Guru Pengampu</h2><div class="principal-directory-card"><div class="principal-avatar">🏫</div><div><small>KEPALA SEKOLAH</small><h3>${esc(principalName)}</h3><p>Memimpin SMP Negeri 38 Maluku Tengah bersama seluruh warga sekolah.</p></div></div><div class="directory-note"><strong>12 mata pelajaran:</strong> Pendidikan Agama dan BP, Pendidikan Pancasila, Bahasa Indonesia, Matematika, IPA, IPS, Bahasa Inggris, Seni & Prakarya, PJOK, Informatika, Bimbingan Konseling, dan Koding/Mulok.</div><div class="subject-directory-list">${subjectCards||'<p>Data guru belum tersedia. Jalankan setup database versi terbaru.</p>'}</div><p class="note"><strong>Catatan:</strong> penugasan guru mengikuti jadwal Semester Genap TP 2025/2026 dan dapat diperbarui dari Google Sheet SCHOOL_DIRECTORY.</p>`);
+    const principalName=String(model.principal.person_name||model.principal.personName||'LINTJE C. PATTY, S.Pd.,M.Si');
+    const scheduleLabel=String((state.data&&state.data.config&&state.data.config.scheduleLabel)||'Jadwal Pelajaran TP 2025/2026 · Sheet SIAP PRINT');
+    const subjectCards=model.subjects.map((s,i)=>`<details class="subject-directory-card" ${i===0?'open':''}><summary><span>${esc(s.icon)}</span><div><strong>${esc(s.name)}</strong><small>${s.teachers.length} guru pengampu</small></div><b>+</b></summary><div class="subject-teacher-list">${s.teachers.map(t=>`<article><div class="teacher-initial">${esc((t.name.match(/[A-Za-z]/)||['G'])[0].toUpperCase())}</div><div><strong>${esc(t.name)}</strong><small>${t.grades?('Jenjang '+esc(t.grades)):'Guru pengampu'}</small>${t.classes?`<em>${esc(t.classes)}</em>`:''}</div></article>`).join('')}</div></details>`).join('');
+    showModal(`<span class="eyebrow">DIREKTORI SEKOLAH · ${esc(scheduleLabel)}</span><h2>Kenali Mata Pelajaran dan Guru Pengampu</h2><div class="principal-directory-card"><div class="principal-avatar">🏫</div><div><small>KEPALA SEKOLAH</small><h3>${esc(principalName)}</h3><p>Memimpin SMP Negeri 38 Maluku Tengah bersama seluruh warga sekolah.</p></div></div><div class="directory-note"><strong>Struktur pembelajaran:</strong> 11 mata pelajaran wajib dan 2 mata pelajaran pilihan. Pada jadwal SIAP PRINT, Koding/Muatan Lokal menggunakan kode L.</div><div class="subject-directory-list">${subjectCards||'<p>Data guru belum tersedia. Jalankan setup database versi terbaru.</p>'}</div><p class="note"><strong>Sumber:</strong> penugasan guru mengikuti jadwal TP 2025/2026 pada sheet <strong>SIAP PRINT</strong> dan dapat diperbarui melalui Google Sheet SCHOOL_DIRECTORY.</p>`);
   }
 
 

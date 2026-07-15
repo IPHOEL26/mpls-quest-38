@@ -80,3 +80,22 @@
 .challenge-steps{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:24px 0}.challenge-steps article{padding:18px;border-radius:20px;background:#fff7ed;border:1px solid #fed7aa;text-align:center}.challenge-steps span{width:38px;height:38px;margin:auto;border-radius:13px;background:#ea580c;color:#fff;display:grid;place-items:center;font-weight:950}.challenge-steps strong,.challenge-steps small{display:block}.challenge-steps strong{margin:8px 0}.challenge-steps small{color:#7c2d12}
 .reflection-3m1l{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:22px 0}.reflection-3m1l article{display:grid;grid-template-columns:54px 1fr;align-items:center;gap:12px;padding:18px;border-radius:20px;background:#f0fdf4;border:1px solid #bbf7d0}.reflection-3m1l span{grid-row:1/3;width:48px;height:48px;border-radius:15px;background:#16a34a;color:#fff;display:grid;place-items:center;font-weight:950}.reflection-3m1l strong{font-size:1.12rem}.reflection-3m1l p{margin:0;color:#475569}.curriculum-morals article{background:linear-gradient(145deg,#fff,#fffbeb)}.curriculum-closing-stage .moral-icon{background:#fef3c7}
 @media(max-width:900px){.curriculum-route-grid,.curriculum-structure-grid,.challenge-steps{grid-template-columns:repeat(2,1fr)}.directory-subject-preview,.strategy-lab-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.curriculum-route-grid,.curriculum-structure-grid,.motivation-grid,.preference-cards,.strategy-lab-grid,.challenge-steps,.reflection-3m1l,.directory-subject-preview,.subject-teacher-list{grid-template-columns:1fr}.principal-feature,.principal-directory-card{grid-template-columns:1fr;text-align:center}.principal-avatar{margin:auto}}
+
+
+/* v1.11 — Struktur kurikulum resmi */
+.curriculum-structure-grid.official-three{grid-template-columns:repeat(3,minmax(0,1fr))}
+.curriculum-structure-grid article small{display:block;margin-top:12px;padding-top:10px;border-top:1px dashed #cbd5e1;color:#334155;line-height:1.5}
+.subject-track-grid{display:grid;grid-template-columns:1.45fr .85fr;gap:14px;margin:20px 0}
+.subject-track-card{padding:20px;border-radius:22px;border:1px solid #e2e8f0;background:#fff}
+.subject-track-card>span{display:inline-flex;padding:6px 10px;border-radius:999px;font-size:.78rem;font-weight:950;letter-spacing:.08em}
+.subject-track-card.mandatory>span{background:#e0e7ff;color:#3730a3}
+.subject-track-card.elective>span{background:#fef3c7;color:#92400e}
+.subject-track-card h3{margin:12px 0 5px;font-size:1.25rem}
+.subject-track-card p{margin:0 0 12px;color:#475569}
+.subject-track-card ul{columns:2;column-gap:24px;margin:0;padding-left:20px}
+.subject-track-card.elective ul{columns:1}
+.subject-track-card li{break-inside:avoid;margin:5px 0;line-height:1.45;font-weight:750}
+.official-source-note{margin:14px 0 18px;padding:15px 17px;border-radius:16px;background:#fff7ed;border:1px solid #fed7aa;color:#7c2d12;line-height:1.6}
+.subject-teacher-list em{display:block;margin-top:4px;color:#64748b;font-size:.78rem;font-style:normal;line-height:1.35}
+@media(max-width:900px){.curriculum-structure-grid.official-three{grid-template-columns:1fr}.subject-track-grid{grid-template-columns:1fr}}
+@media(max-width:650px){.subject-track-card ul{columns:1}}
